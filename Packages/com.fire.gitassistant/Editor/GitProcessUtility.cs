@@ -116,6 +116,41 @@ namespace Fire.GitAssistant
             return result.Success ? result.Output : GitLocalization.Tr("log.empty");
         }
 
+        public static IReadOnlyList<GitCommitEntry> GetRecentCommits(int count = 12)
+        {
+            var format = "%h%x1F%an%x1F%cr%x1F%s";
+            var arguments = $"log -n {count} --pretty=format:\"{format}\"";
+            var result = Run(arguments, logOnError: false);
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
+            {
+                return Array.Empty<GitCommitEntry>();
+            }
+
+            var lines = result.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0)
+            {
+                return Array.Empty<GitCommitEntry>();
+            }
+
+            var entries = new List<GitCommitEntry>(lines.Length);
+            foreach (var line in lines)
+            {
+                var parts = line.Split('\x1F');
+                if (parts.Length < 4)
+                {
+                    continue;
+                }
+
+                entries.Add(new GitCommitEntry(
+                    parts[0].Trim(),
+                    parts[1].Trim(),
+                    parts[2].Trim(),
+                    parts[3].Trim()));
+            }
+
+            return entries;
+        }
+
         public static IReadOnlyList<string> GetRemoteNames()
         {
             var result = Run("remote", logOnError: false);
@@ -155,6 +190,22 @@ namespace Fire.GitAssistant
         Deleted,
         Renamed,
         Unknown
+    }
+
+    internal readonly struct GitCommitEntry
+    {
+        public string Hash { get; }
+        public string Author { get; }
+        public string RelativeTime { get; }
+        public string Message { get; }
+
+        public GitCommitEntry(string hash, string author, string relativeTime, string message)
+        {
+            Hash = hash;
+            Author = author;
+            RelativeTime = relativeTime;
+            Message = message;
+        }
     }
 
     internal readonly struct GitStatusEntry

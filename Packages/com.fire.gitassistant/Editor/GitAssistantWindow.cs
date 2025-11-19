@@ -19,9 +19,9 @@ namespace Fire.GitAssistant
         private SearchField _searchField;
 
         private IReadOnlyList<GitStatusEntry> _entries = Array.Empty<GitStatusEntry>();
+        private IReadOnlyList<GitCommitEntry> _commitHistory = Array.Empty<GitCommitEntry>();
         private string _branch = string.Empty;
         private string _statusSummary = string.Empty;
-        private string _log = string.Empty;
         private string _commitMessage = string.Empty;
         private string _remoteName = "origin";
         private string _pushBranch = "main";
@@ -30,9 +30,8 @@ namespace Fire.GitAssistant
         private string _customPushTarget = string.Empty;
         private int _remoteIndex = -1;
 
-        private Vector2 _logScroll;
+        private Vector2 _rightPanelScroll;
         private GUIStyle _cardStyle;
-        private GUIStyle _sectionTitleStyle;
         private GUIStyle _mutedLabelStyle;
         private GUIStyle _pillStyle;
         private GUIStyle _primaryButtonStyle;
@@ -44,11 +43,40 @@ namespace Fire.GitAssistant
         private GUIStyle _metricLabelStyle;
         private GUIStyle _metricValueStyle;
         private GUIStyle _heroHelpButtonStyle;
+        private GUIStyle _logCommitCardStyle;
+        private GUIStyle _logCommitTitleStyle;
+        private GUIStyle _logCommitMetaStyle;
+        private GUIStyle _authorTagStyle;
+        private GUIStyle _cardHeaderTitleStyle;
+        private GUIStyle _cardHeaderSubtitleStyle;
+        private GUIStyle _cardHeaderIconStyle;
         private GUIContent _settingsIconContent;
         private GUIContent _remoteMenuIconContent;
         private GUIContent _helpIconContent;
+        private GUIContent _statusCardIconContent;
+        private GUIContent _changesCardIconContent;
+        private GUIContent _commitCardIconContent;
+        private GUIContent _logCardIconContent;
         private Texture2D _heroBackgroundTexture;
         private Texture2D _metricBackgroundTexture;
+        private Texture2D _cardBackgroundTexture;
+        private readonly Dictionary<string, Color> _authorColorCache = new();
+        private static readonly Color[] AuthorColorPalette =
+        {
+            new(0.90f, 0.47f, 0.24f),
+            new(0.36f, 0.65f, 0.99f),
+            new(0.53f, 0.80f, 0.55f),
+            new(0.92f, 0.72f, 0.27f),
+            new(0.73f, 0.60f, 0.96f),
+            new(0.98f, 0.42f, 0.50f)
+        };
+        private static readonly Color TimelineLineColor = new(1f, 1f, 1f, 0.18f);
+        private static readonly Color AddedColor = new(0.29f, 0.73f, 0.52f);
+        private static readonly Color ModifiedColor = new(0.29f, 0.56f, 0.94f);
+        private static readonly Color DeletedColor = new(0.86f, 0.38f, 0.38f);
+        private static readonly Color RenamedColor = new(0.93f, 0.69f, 0.32f);
+        private static readonly Color UntrackedColor = new(0.78f, 0.46f, 0.92f);
+        private static readonly Color UnknownColor = new(0.55f, 0.55f, 0.55f);
 
         private bool HasChanges => _entries != null && _entries.Count > 0;
         private bool CanCommit => HasChanges && !string.IsNullOrWhiteSpace(_commitMessage);
@@ -111,11 +139,14 @@ namespace Fire.GitAssistant
 
                 GUILayout.Space(10);
 
-                using (new EditorGUILayout.VerticalScope(GUILayout.Width(Mathf.Max(RightPanelMinWidth, position.width * 0.38f))))
+                var rightPanelWidth = GetRightPanelWidth();
+                using (new EditorGUILayout.VerticalScope(GUILayout.Width(rightPanelWidth)))
                 {
+                    _rightPanelScroll = EditorGUILayout.BeginScrollView(_rightPanelScroll, GUILayout.ExpandHeight(true));
                     DrawCommitCard();
                     EditorGUILayout.Space(6);
                     DrawLogCard();
+                    EditorGUILayout.EndScrollView();
                 }
             }
         }
@@ -214,10 +245,33 @@ namespace Fire.GitAssistant
 
         private void DrawMetricBadge(string label, string value)
         {
-            using (new EditorGUILayout.VerticalScope(_metricBadgeStyle, GUILayout.Width(180)))
+            var adaptiveWidth = Mathf.Clamp(position.width * 0.2f, 140f, 260f);
+            using (new EditorGUILayout.VerticalScope(_metricBadgeStyle, GUILayout.MinWidth(adaptiveWidth), GUILayout.MaxWidth(adaptiveWidth)))
             {
                 EditorGUILayout.LabelField(label, _metricLabelStyle);
                 EditorGUILayout.LabelField(value, _metricValueStyle);
+            }
+        }
+
+        private void DrawCardHeader(GUIContent icon, string title, string subtitle)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (icon != null && icon.image != null)
+                {
+                    GUILayout.Label(icon, _cardHeaderIconStyle, GUILayout.Width(28), GUILayout.Height(28));
+                }
+
+                using (new EditorGUILayout.VerticalScope())
+                {
+                    EditorGUILayout.LabelField(title, _cardHeaderTitleStyle);
+                    if (!string.IsNullOrEmpty(subtitle))
+                    {
+                        EditorGUILayout.LabelField(subtitle, _cardHeaderSubtitleStyle);
+                    }
+                }
+
+                GUILayout.FlexibleSpace();
             }
         }
 
@@ -225,21 +279,16 @@ namespace Fire.GitAssistant
         {
             using (new EditorGUILayout.VerticalScope(_cardStyle))
             {
-                EditorGUILayout.LabelField(GitLocalization.Tr("status.overview"), _sectionTitleStyle);
+                var summaryText = string.IsNullOrEmpty(_statusSummary)
+                    ? GitLocalization.Tr("status.clean")
+                    : _statusSummary;
+                DrawCardHeader(_statusCardIconContent, GitLocalization.Tr("status.overview"), summaryText);
+                EditorGUILayout.Space(6);
 
                 var branchLabel = string.IsNullOrEmpty(_branch)
                     ? GitLocalization.Tr("status.branchUnknown")
                     : GitLocalization.Tr("status.currentBranch", _branch);
                 EditorGUILayout.LabelField(branchLabel, EditorStyles.boldLabel);
-
-                if (!string.IsNullOrEmpty(_statusSummary))
-                {
-                    EditorGUILayout.LabelField(_statusSummary, _mutedLabelStyle);
-                }
-                else
-                {
-                    EditorGUILayout.LabelField(GitLocalization.Tr("status.clean"), _mutedLabelStyle);
-                }
 
                 if (!string.IsNullOrEmpty(_errorMessage))
                 {
@@ -252,12 +301,7 @@ namespace Fire.GitAssistant
         {
             using (new EditorGUILayout.VerticalScope(_cardStyle, GUILayout.ExpandHeight(true)))
             {
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    EditorGUILayout.LabelField(GitLocalization.Tr("changes.cardTitle"), _sectionTitleStyle);
-                    GUILayout.FlexibleSpace();
-                    EditorGUILayout.LabelField(GitLocalization.Tr("changes.total", _entries.Count), _mutedLabelStyle, GUILayout.Width(140));
-                }
+                DrawCardHeader(_changesCardIconContent, GitLocalization.Tr("changes.cardTitle"), GitLocalization.Tr("changes.total", _entries.Count));
 
                 EditorGUILayout.Space(4);
                 DrawChangeBadges();
@@ -287,29 +331,82 @@ namespace Fire.GitAssistant
                 return;
             }
 
-            using (new EditorGUILayout.HorizontalScope())
+            DrawChangeDistributionBar(groups);
+            EditorGUILayout.Space(6);
+
+            var perRow = Mathf.Max(1, Mathf.FloorToInt(position.width / 210f));
+            for (var i = 0; i < groups.Count; i += perRow)
             {
-                foreach (var group in groups)
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    var label = $"{GitLocalization.GetStatusLabel(group.Key)} · {group.Count()}";
-                    GUILayout.Label(label, _pillStyle);
+                    var rowCount = Mathf.Min(perRow, groups.Count - i);
+                    for (var j = 0; j < rowCount; j++)
+                    {
+                        var group = groups[i + j];
+                        DrawChangeBadge(group.Key, group.Count());
+                    }
+
+                    GUILayout.FlexibleSpace();
                 }
+
+                EditorGUILayout.Space(2);
             }
+        }
+
+        private void DrawChangeDistributionBar(IReadOnlyList<IGrouping<GitChangeKind, GitStatusEntry>> groups)
+        {
+            if (_entries == null || _entries.Count == 0)
+            {
+                return;
+            }
+
+            var lineRect = GUILayoutUtility.GetRect(GUIContent.none, GUIStyle.none, GUILayout.Height(10), GUILayout.ExpandWidth(true));
+            EditorGUI.DrawRect(lineRect, new Color(1f, 1f, 1f, 0.06f));
+
+            var total = (float)_entries.Count;
+            var cursor = lineRect.x;
+            foreach (var group in groups)
+            {
+                var count = group.Count();
+                if (count <= 0)
+                {
+                    continue;
+                }
+
+                var width = lineRect.width * (count / total);
+                if (width <= 0)
+                {
+                    continue;
+                }
+
+                var sliceRect = new Rect(cursor, lineRect.y, width, lineRect.height);
+                EditorGUI.DrawRect(sliceRect, GetChangeColor(group.Key));
+                cursor += width;
+            }
+        }
+
+        private void DrawChangeBadge(GitChangeKind kind, int count)
+        {
+            var label = $"{GitLocalization.GetStatusLabel(kind)} · {count}";
+            var content = new GUIContent(label);
+            var badgeRect = GUILayoutUtility.GetRect(content, _pillStyle, GUILayout.MinWidth(120));
+            EditorGUI.DrawRect(badgeRect, GetChangeColor(kind));
+            var innerRect = new Rect(badgeRect.x + 1, badgeRect.y + 1, badgeRect.width - 2, badgeRect.height - 2);
+            EditorGUI.DrawRect(innerRect, new Color(0f, 0f, 0f, 0.28f));
+            GUI.Label(badgeRect, label, _pillStyle);
         }
 
         private void DrawCommitCard()
         {
             using (new EditorGUILayout.VerticalScope(_cardStyle))
             {
-                EditorGUILayout.LabelField(GitLocalization.Tr("commit.cardTitle"), _sectionTitleStyle);
-                EditorGUILayout.LabelField(GitLocalization.Tr("commit.tip"), _mutedLabelStyle);
-
-                EditorGUILayout.Space(6);
+                DrawCardHeader(_commitCardIconContent, GitLocalization.Tr("commit.cardTitle"), GitLocalization.Tr("commit.tip"));
+                EditorGUILayout.Space(8);
                 EditorGUILayout.LabelField(GitLocalization.Tr("commit.messageLabel"));
 
                 _commitMessage = EditorGUILayout.TextArea(
                     _commitMessage,
-                    GUILayout.MinHeight(90));
+                    GUILayout.MinHeight(Mathf.Lerp(90f, 150f, Mathf.InverseLerp(760f, 1600f, position.width))));
 
                 if (!HasChanges)
                 {
@@ -393,13 +490,26 @@ namespace Fire.GitAssistant
         {
             using (new EditorGUILayout.VerticalScope(_cardStyle))
             {
-                EditorGUILayout.LabelField(GitLocalization.Tr("log.title"), _sectionTitleStyle);
-                _logScroll = EditorGUILayout.BeginScrollView(_logScroll, GUILayout.Height(200));
-                EditorGUILayout.SelectableLabel(
-                    string.IsNullOrEmpty(_log) ? GitLocalization.Tr("log.empty") : _log,
-                    EditorStyles.textArea,
-                    GUILayout.ExpandHeight(true));
-                EditorGUILayout.EndScrollView();
+                var hasCommits = _commitHistory != null && _commitHistory.Count > 0;
+                var subtitle = hasCommits
+                    ? $"{GitLocalization.Tr("log.title")} · {_commitHistory.Count}"
+                    : GitLocalization.Tr("log.empty");
+                DrawCardHeader(_logCardIconContent, GitLocalization.Tr("log.title"), subtitle);
+
+                if (!hasCommits)
+                {
+                    EditorGUILayout.HelpBox(GitLocalization.Tr("log.empty"), MessageType.Info);
+                    return;
+                }
+
+                for (var i = 0; i < _commitHistory.Count; i++)
+                {
+                    DrawCommitTimelineEntry(_commitHistory[i], i, _commitHistory.Count);
+                    if (i < _commitHistory.Count - 1)
+                    {
+                        EditorGUILayout.Space(4);
+                    }
+                }
             }
         }
 
@@ -454,8 +564,8 @@ namespace Fire.GitAssistant
         private void RefreshData()
         {
             _branch = GitProcessUtility.GetCurrentBranch();
-            _log = GitProcessUtility.GetRecentLog();
             _entries = GitProcessUtility.GetStatusEntries();
+            _commitHistory = GitProcessUtility.GetRecentCommits();
             _treeView?.SetEntries(_entries);
             _statusSummary = BuildSummary(_entries);
             _errorMessage = string.Empty;
@@ -564,6 +674,13 @@ namespace Fire.GitAssistant
             prefs.CustomPushTarget = _customPushTarget;
         }
 
+        private float GetRightPanelWidth()
+        {
+            var adaptiveWidth = position.width * 0.38f;
+            var maxWidth = Mathf.Max(position.width - 360f, RightPanelMinWidth);
+            return Mathf.Clamp(adaptiveWidth, RightPanelMinWidth, maxWidth);
+        }
+
         private void UpdateRemoteOptions()
         {
             _remoteOptions.Clear();
@@ -584,15 +701,15 @@ namespace Fire.GitAssistant
         {
             if (_cardStyle == null)
             {
+                _cardBackgroundTexture ??= CreateVerticalGradientTexture(new Color(0.15f, 0.18f, 0.26f), new Color(0.09f, 0.10f, 0.14f));
+                _heroBackgroundTexture ??= CreateVerticalGradientTexture(new Color(0.18f, 0.21f, 0.32f), new Color(0.08f, 0.10f, 0.18f));
+                _metricBackgroundTexture ??= CreateVerticalGradientTexture(new Color(1f, 1f, 1f, 0.16f), new Color(1f, 1f, 1f, 0.05f));
+
                 _cardStyle = new GUIStyle("HelpBox")
                 {
                     padding = new RectOffset(14, 14, 12, 12)
                 };
-
-                _sectionTitleStyle = new GUIStyle(EditorStyles.boldLabel)
-                {
-                    fontSize = 13
-                };
+                _cardStyle.normal.background = _cardBackgroundTexture;
 
                 _mutedLabelStyle = new GUIStyle(EditorStyles.miniLabel)
                 {
@@ -607,6 +724,7 @@ namespace Fire.GitAssistant
                     padding = new RectOffset(10, 10, 2, 2),
                     margin = new RectOffset(0, 6, 0, 4)
                 };
+                _pillStyle.normal.textColor = Color.white;
 
                 _primaryButtonStyle = new GUIStyle(GUI.skin.button)
                 {
@@ -620,9 +738,6 @@ namespace Fire.GitAssistant
                     fontSize = 13,
                     fixedHeight = 34
                 };
-
-                _heroBackgroundTexture ??= CreateColorTexture(new Color(0.12f, 0.15f, 0.22f));
-                _metricBackgroundTexture ??= CreateColorTexture(new Color(1f, 1f, 1f, 0.1f));
 
                 _heroStyle = new GUIStyle("HelpBox")
                 {
@@ -667,6 +782,47 @@ namespace Fire.GitAssistant
                     fixedHeight = 36,
                     padding = new RectOffset(12, 12, 6, 6)
                 };
+
+                _logCommitCardStyle = new GUIStyle("HelpBox")
+                {
+                    padding = new RectOffset(10, 12, 6, 6),
+                    margin = new RectOffset(0, 0, 2, 2)
+                };
+
+                _logCommitTitleStyle = new GUIStyle(EditorStyles.boldLabel)
+                {
+                    wordWrap = true,
+                    fontSize = 13
+                };
+
+                _logCommitMetaStyle = new GUIStyle(EditorStyles.miniLabel)
+                {
+                    normal = { textColor = new Color(0.75f, 0.78f, 0.82f) }
+                };
+
+                _authorTagStyle = new GUIStyle(EditorStyles.miniBoldLabel)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    padding = new RectOffset(8, 8, 2, 2),
+                    margin = new RectOffset(0, 0, 0, 0),
+                    normal = { textColor = Color.white }
+                };
+
+                _cardHeaderTitleStyle = new GUIStyle(EditorStyles.boldLabel)
+                {
+                    fontSize = 14
+                };
+                _cardHeaderSubtitleStyle = new GUIStyle(EditorStyles.miniLabel)
+                {
+                    wordWrap = true,
+                    fontSize = 11,
+                    normal = { textColor = new Color(0.72f, 0.78f, 0.88f) }
+                };
+                _cardHeaderIconStyle = new GUIStyle
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    margin = new RectOffset(0, 10, 0, 0)
+                };
             }
 
             _settingsIconContent ??= EditorGUIUtility.IconContent("_Popup");
@@ -675,15 +831,123 @@ namespace Fire.GitAssistant
             _remoteMenuIconContent.tooltip = GitLocalization.Tr("toolbar.remoteMenuTitle");
             _helpIconContent ??= EditorGUIUtility.IconContent("_Help");
             _helpIconContent.tooltip = GitLocalization.Tr("hero.helpTooltip");
+            _statusCardIconContent ??= EditorGUIUtility.IconContent("d_UnityEditor.ConsoleWindow");
+            _statusCardIconContent.tooltip = GitLocalization.Tr("status.overview");
+            _changesCardIconContent ??= EditorGUIUtility.IconContent("d_UnityEditor.HierarchyWindow");
+            _changesCardIconContent.tooltip = GitLocalization.Tr("changes.cardTitle");
+            _commitCardIconContent ??= EditorGUIUtility.IconContent("d_UnityEditor.Graphs.AnimatorControllerTool");
+            _commitCardIconContent.tooltip = GitLocalization.Tr("commit.cardTitle");
+            _logCardIconContent ??= EditorGUIUtility.IconContent("d_UnityEditor.AnimationWindow");
+            _logCardIconContent.tooltip = GitLocalization.Tr("log.title");
         }
 
-        private static Texture2D CreateColorTexture(Color color)
+        private static Texture2D CreateVerticalGradientTexture(Color top, Color bottom)
         {
-            var texture = new Texture2D(1, 1);
-            texture.SetPixel(0, 0, color);
+            const int height = 32;
+            var texture = new Texture2D(1, height);
+            for (var y = 0; y < height; y++)
+            {
+                var t = y / (height - 1f);
+                texture.SetPixel(0, y, Color.Lerp(top, bottom, t));
+            }
+
             texture.Apply();
+            texture.wrapMode = TextureWrapMode.Clamp;
             texture.hideFlags = HideFlags.HideAndDontSave;
             return texture;
+        }
+
+
+        private void DrawCommitTimelineEntry(GitCommitEntry entry, int index, int total)
+        {
+            using (new EditorGUILayout.HorizontalScope(_logCommitCardStyle))
+            {
+                var timelineRect = GUILayoutUtility.GetRect(28, 54, GUILayout.Width(28), GUILayout.ExpandHeight(true));
+                DrawTimelineGizmo(timelineRect, index, total, entry.Author);
+
+                using (new EditorGUILayout.VerticalScope())
+                {
+                    EditorGUILayout.LabelField(string.IsNullOrEmpty(entry.Message) ? "-" : entry.Message, _logCommitTitleStyle);
+                    EditorGUILayout.Space(2);
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        DrawAuthorTag(entry.Author);
+                        GUILayout.Space(6);
+                        EditorGUILayout.LabelField(entry.RelativeTime, _logCommitMetaStyle, GUILayout.Width(90));
+                        GUILayout.Space(4);
+                        EditorGUILayout.LabelField(entry.Hash, _logCommitMetaStyle, GUILayout.Width(70));
+                        GUILayout.FlexibleSpace();
+                    }
+                }
+            }
+        }
+
+        private void DrawTimelineGizmo(Rect rect, int index, int total, string author)
+        {
+            if (Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+
+            var center = new Vector3(rect.x + rect.width / 2f, rect.center.y, 0f);
+            Handles.BeginGUI();
+            Handles.color = TimelineLineColor;
+            if (index > 0)
+            {
+                Handles.DrawLine(new Vector3(center.x, rect.y, 0f), new Vector3(center.x, center.y - 8f, 0f));
+            }
+
+            if (index < total - 1)
+            {
+                Handles.DrawLine(new Vector3(center.x, center.y + 8f, 0f), new Vector3(center.x, rect.yMax, 0f));
+            }
+
+            Handles.color = GetAuthorColor(author);
+            Handles.DrawSolidDisc(center, Vector3.forward, 5f);
+            Handles.color = Color.white;
+            Handles.DrawSolidDisc(center, Vector3.forward, 2.4f);
+            Handles.EndGUI();
+        }
+
+        private void DrawAuthorTag(string author)
+        {
+            var display = string.IsNullOrWhiteSpace(author) ? "-" : author;
+            var content = new GUIContent(display);
+            var rect = GUILayoutUtility.GetRect(content, _authorTagStyle, GUILayout.ExpandWidth(false));
+            EditorGUI.DrawRect(rect, GetAuthorColor(author));
+            var innerRect = new Rect(rect.x + 1, rect.y + 1, rect.width - 2, rect.height - 2);
+            EditorGUI.DrawRect(innerRect, new Color(0f, 0f, 0f, 0.35f));
+            GUI.Label(rect, content, _authorTagStyle);
+        }
+
+        private Color GetAuthorColor(string author)
+        {
+            if (string.IsNullOrWhiteSpace(author))
+            {
+                author = "unknown";
+            }
+
+            if (_authorColorCache.TryGetValue(author, out var cached))
+            {
+                return cached;
+            }
+
+            var color = AuthorColorPalette[_authorColorCache.Count % AuthorColorPalette.Length];
+            _authorColorCache[author] = color;
+            return color;
+        }
+
+        private Color GetChangeColor(GitChangeKind kind)
+        {
+            return kind switch
+            {
+                GitChangeKind.Added => AddedColor,
+                GitChangeKind.Modified => ModifiedColor,
+                GitChangeKind.Deleted => DeletedColor,
+                GitChangeKind.Renamed => RenamedColor,
+                GitChangeKind.Untracked => UntrackedColor,
+                _ => UnknownColor
+            };
         }
     }
 }
