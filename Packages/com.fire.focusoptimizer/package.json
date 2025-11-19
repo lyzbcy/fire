@@ -1,0 +1,21 @@
+{
+  "name": "com.fire.focusoptimizer",
+  "displayName": "Focus Optimizer",
+  "version": "0.1.0",
+  "unity": "2022.3",
+  "description": "减少 Unity 编辑器在重新获得焦点时的刷新卡顿，提供刷新限流与 Enter Play Mode 优化工具。",
+  "keywords": [
+    "focus",
+    "refresh",
+    "productivity",
+    "editor"
+  ],
+  "category": "Editor",
+  "author": {
+    "name": "Fire Tools",
+    "email": "support@fire-tools.example",
+    "url": "https://github.com/fire-tools"
+  },
+  "dependencies": {}
+}
+

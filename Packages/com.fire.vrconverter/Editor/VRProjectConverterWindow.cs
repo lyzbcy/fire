@@ -8,15 +8,15 @@ using UnityEditor.PackageManager.Requests;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace Fire.VRConverter.Editor
+namespace OneClick.VRConverter.Editor
 {
     /// <summary>
     /// 一键将当前项目配置为基础 VR 项目的工具窗口。
-    /// 菜单：Tools/Fire VR/一键转换当前项目为VR...
+    /// 菜单：Tools/VR Converter/一键转换当前项目为VR...
     /// </summary>
     public class VRProjectConverterWindow : EditorWindow
     {
-        private const string MenuPath = "Tools/Fire VR/一键转换当前项目为VR...";
+        private const string MenuPath = "Tools/VR Converter/一键转换当前项目为VR...";
 
         // 需要添加的 XR 相关包名
         private static readonly string[] RequiredPackages =
@@ -32,7 +32,7 @@ namespace Fire.VRConverter.Editor
             BuildTargetGroup.Android
         };
 
-        private const string GeneratedSettingsFolder = "Assets/FireVRGenerated/XR";
+        private const string GeneratedSettingsFolder = "Assets/VRConverterGenerated/XR";
         private const string GeneratedGeneralSettingsAsset = GeneratedSettingsFolder + "/XRGeneralSettings.asset";
 
         private const string OpenXrLoaderTypeName = "UnityEngine.XR.OpenXR.OpenXRLoader";
@@ -53,12 +53,12 @@ namespace Fire.VRConverter.Editor
         {
             var window = GetWindow<VRProjectConverterWindow>("一键VR转换");
             window.minSize = new Vector2(420, 320);
-            window.Log("打开 Fire 一键VR转换 工具。");
+            window.Log("打开一键 VR 转换工具。");
         }
 
         private void OnGUI()
         {
-            EditorGUILayout.LabelField("Fire 一键 VR 转换", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("一键 VR 转换", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
                 "此工具会尝试：\n" +
                 "1. 在 manifest.json 中确保 XR Management / OpenXR / XR Interaction Toolkit。\n" +

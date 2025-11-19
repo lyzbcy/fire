@@ -1,5 +1,11 @@
 {
   "dependencies": {
+    "com.fire.focusoptimizer": {
+      "version": "file:com.fire.focusoptimizer",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.fire.vrconverter": {
       "version": "file:com.fire.vrconverter",
       "depth": 0,

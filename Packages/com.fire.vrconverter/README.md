@@ -1,6 +1,6 @@
-# Fire VR 项目转换工具使用说明
+# 一键 VR 项目转换工具使用说明
 
-本指南由两大部分组成：**Git 协作流程**（放在最前，确保团队协作安全高效）与 **Fire VR Converter 工具步骤**（帮助你快速把现有 Unity 项目配置为基础 VR 环境）。
+本指南由两大部分组成：**Git 协作流程**（放在最前，确保团队协作安全高效）与 **一键 VR Converter 工具步骤**（帮助你快速把现有 Unity 项目配置为基础 VR 环境）。
 
 ---
 
@@ -123,19 +123,19 @@ git push
 
 ---
 
-## Fire VR Converter 使用指南
+## 一键 VR Converter 使用指南
 
-以下内容介绍如何在 Unity 中使用 `Fire.VRConverter.Editor.VRProjectConverterWindow`，快速配置基础 VR 环境。
+以下内容介绍如何在 Unity 中使用 `OneClick.VRConverter.Editor.VRProjectConverterWindow`，快速配置基础 VR 环境。
 
 ### 前置条件
 - Unity 2021.3 LTS 或更高版本（已安装 Unity XR 模块）。
-- 已导入 Fire VR Converter（`Packages/com.fire.vrconverter`）。
-- 拥有项目写入权限（修改 `Packages/manifest.json`、生成 `Assets/FireVRGenerated` 资源）。
+- 已导入一键 VR Converter（`Packages/com.fire.vrconverter`）。
+- 拥有项目写入权限（修改 `Packages/manifest.json`、生成 `Assets/VRConverterGenerated` 资源）。
 
 ### 打开工具窗口
 1. 启动 Unity 并打开目标项目。
 2. 等待脚本编译完成。
-3. 菜单路径：`Tools > Fire VR > 一键转换当前项目为VR...`。
+3. 菜单路径：`Tools > VR Converter > 一键转换当前项目为VR...`。
 4. 窗口提供三个操作：
    - **一键执行所有步骤（推荐）**
    - **第1步：只检查并添加 XR 依赖包**
@@ -166,7 +166,7 @@ git push
 1. 确认状态栏无 *Compiling Scripts*。
 2. 点击 **第2步：配置 XR 设置 + 创建/更新场景 VR Rig**。
 3. 结果包括：
-   - 生成 `Assets/FireVRGenerated/XR/XRGeneralSettings.asset`（按平台区分的资产）。
+   - 生成 `Assets/VRConverterGenerated/XR/XRGeneralSettings.asset`（按平台区分的资产）。
    - 在 `EditorBuildSettings` 中注册对应 XR General Settings。
    - 为 Standalone/Android 创建 `XR Manager Settings` 并启用 OpenXR Loader。
    - 当前场景生成 XR Origin（包含 `Camera Offset`、`Main Camera`、左右手控制器、Tracked Pose Driver、Action Based Controller、XR Ray Interactor、Line Renderer、XR Interaction Manager、Input Action Manager）。
