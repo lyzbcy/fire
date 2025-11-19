@@ -1,0 +1,20 @@
+{
+  "name": "com.fire.vrconverter",
+  "displayName": "Fire One-Click VR Converter",
+  "version": "0.1.0",
+  "unity": "2021.3",
+  "description": "一键将普通3D项目转换为基础VR项目的编辑器工具，自动添加XR依赖并创建通用VR控制。",
+  "keywords": [
+    "vr",
+    "xr",
+    "tool",
+    "converter"
+  ],
+  "type": "tool",
+  "author": {
+    "name": "Fire VR Converter",
+    "email": "vr-converter@example.com"
+  }
+}
+
+
