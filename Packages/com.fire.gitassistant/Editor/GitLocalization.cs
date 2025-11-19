@@ -86,6 +86,7 @@ namespace Fire.GitAssistant
                         ["notify.commitSuccess"] = "提交完成",
                         ["notify.pullSuccess"] = "拉取完成",
                         ["notify.pushSuccess"] = "推送完成",
+                        ["notify.fetchSuccess"] = "远端信息已更新",
                         ["log.title"] = "最近提交 (git log --graph)",
                         ["log.empty"] = "暂无日志，可先进行一次提交。",
                         ["dialog.gitError"] = "执行 git {0} 失败：\n{1}",
@@ -106,7 +107,15 @@ namespace Fire.GitAssistant
                         ["settings.customPushToggle"] = "改用完整远端地址",
                         ["settings.customPushTarget"] = "推送地址",
                         ["settings.resetDefaults"] = "重置为默认值",
-                        ["errors.pushTargetMissing"] = "请先在工具栏或设置中配置远端与分支。"
+                        ["errors.pushTargetMissing"] = "请先在工具栏或设置中配置远端与分支。",
+                        ["pullPicker.title"] = "选择拉取版本",
+                        ["pullPicker.description"] = "请选择要同步的远端历史版本（{0}/{1}）。",
+                        ["pullPicker.loading"] = "正在读取远端日志...",
+                        ["pullPicker.empty"] = "未能获取远端历史记录。",
+                        ["pullPicker.confirm"] = "拉取所选版本",
+                        ["pullPicker.cancel"] = "取消",
+                        ["pullPicker.refresh"] = "重新获取",
+                        ["pullPicker.invalidTarget"] = "远端或分支未配置，无法获取历史。"
                     }
                 },
                 {
@@ -157,6 +166,7 @@ namespace Fire.GitAssistant
                         ["notify.commitSuccess"] = "Commit completed",
                         ["notify.pullSuccess"] = "Pull completed",
                         ["notify.pushSuccess"] = "Push completed",
+                        ["notify.fetchSuccess"] = "Remote refs refreshed",
                         ["log.title"] = "Recent commits (git log --graph)",
                         ["log.empty"] = "Log is empty. Make a commit to get started.",
                         ["dialog.gitError"] = "git {0} failed:\n{1}",
@@ -177,7 +187,15 @@ namespace Fire.GitAssistant
                         ["settings.customPushToggle"] = "Use full remote URL",
                         ["settings.customPushTarget"] = "Push target",
                         ["settings.resetDefaults"] = "Reset to defaults",
-                        ["errors.pushTargetMissing"] = "Please configure a remote and branch first."
+                        ["errors.pushTargetMissing"] = "Please configure a remote and branch first.",
+                        ["pullPicker.title"] = "Pick pull target",
+                        ["pullPicker.description"] = "Select a remote revision to sync ({0}/{1}).",
+                        ["pullPicker.loading"] = "Loading remote log...",
+                        ["pullPicker.empty"] = "No remote history available.",
+                        ["pullPicker.confirm"] = "Pull selected revision",
+                        ["pullPicker.cancel"] = "Cancel",
+                        ["pullPicker.refresh"] = "Refresh list",
+                        ["pullPicker.invalidTarget"] = "Remote or branch missing. Cannot read history."
                     }
                 },
                 {
@@ -228,6 +246,7 @@ namespace Fire.GitAssistant
                         ["notify.commitSuccess"] = "コミットが完了しました",
                         ["notify.pullSuccess"] = "プルが完了しました",
                         ["notify.pushSuccess"] = "プッシュが完了しました",
+                        ["notify.fetchSuccess"] = "リモート情報を更新しました",
                         ["log.title"] = "直近のコミット (git log --graph)",
                         ["log.empty"] = "履歴はまだありません。まずはコミットしましょう。",
                         ["dialog.gitError"] = "git {0} に失敗しました：\n{1}",
@@ -248,7 +267,15 @@ namespace Fire.GitAssistant
                         ["settings.customPushToggle"] = "完全なリモート URL を使用",
                         ["settings.customPushTarget"] = "プッシュ URL",
                         ["settings.resetDefaults"] = "既定値に戻す",
-                        ["errors.pushTargetMissing"] = "まずリモートとブランチを設定してください。"
+                        ["errors.pushTargetMissing"] = "まずリモートとブランチを設定してください。",
+                        ["pullPicker.title"] = "取得する履歴を選択",
+                        ["pullPicker.description"] = "同期したいリモート履歴を選んでください（{0}/{1}）。",
+                        ["pullPicker.loading"] = "リモートログを読み込み中...",
+                        ["pullPicker.empty"] = "リモート履歴を取得できませんでした。",
+                        ["pullPicker.confirm"] = "選択した履歴を取得",
+                        ["pullPicker.cancel"] = "キャンセル",
+                        ["pullPicker.refresh"] = "再取得",
+                        ["pullPicker.invalidTarget"] = "リモートまたはブランチが未設定のため、履歴を取得できません。"
                     }
                 }
             };

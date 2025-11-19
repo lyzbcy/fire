@@ -151,6 +151,57 @@ namespace Fire.GitAssistant
             return entries;
         }
 
+        public static IReadOnlyList<GitCommitEntry> GetRemoteCommits(string remote, string branch, int count, out string error)
+        {
+            error = string.Empty;
+            if (string.IsNullOrWhiteSpace(remote) || string.IsNullOrWhiteSpace(branch))
+            {
+                error = GitLocalization.Tr("pullPicker.invalidTarget");
+                return Array.Empty<GitCommitEntry>();
+            }
+
+            var format = "%h%x1F%an%x1F%cr%x1F%s";
+            var arguments = $"log -n {count} --pretty=format:\"{format}\" {remote}/{branch}";
+            var result = Run(arguments, logOnError: false);
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
+            {
+                error = string.IsNullOrWhiteSpace(result.Error)
+                    ? GitLocalization.Tr("pullPicker.empty")
+                    : result.Error;
+                return Array.Empty<GitCommitEntry>();
+            }
+
+            var lines = result.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0)
+            {
+                error = GitLocalization.Tr("pullPicker.empty");
+                return Array.Empty<GitCommitEntry>();
+            }
+
+            var entries = new List<GitCommitEntry>(lines.Length);
+            foreach (var line in lines)
+            {
+                var parts = line.Split('\x1F');
+                if (parts.Length < 4)
+                {
+                    continue;
+                }
+
+                entries.Add(new GitCommitEntry(
+                    parts[0].Trim(),
+                    parts[1].Trim(),
+                    parts[2].Trim(),
+                    parts[3].Trim()));
+            }
+
+            if (entries.Count == 0)
+            {
+                error = GitLocalization.Tr("pullPicker.empty");
+            }
+
+            return entries;
+        }
+
         public static IReadOnlyList<string> GetRemoteNames()
         {
             var result = Run("remote", logOnError: false);

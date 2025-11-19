@@ -560,7 +560,24 @@ namespace Fire.GitAssistant
                 return;
             }
 
-            if (ExecuteGitCommand($"pull {_remoteName} {_pushBranch}", GitLocalization.Tr("notify.pullSuccess")))
+            var remote = _remoteName?.Trim() ?? string.Empty;
+            var branch = _pushBranch?.Trim() ?? string.Empty;
+            GitPullHistoryWindow.Show(remote, branch, hash => HandleHistoricalPull(remote, branch, hash));
+        }
+
+        private void HandleHistoricalPull(string remote, string branch, string commitHash)
+        {
+            if (string.IsNullOrWhiteSpace(commitHash))
+            {
+                return;
+            }
+
+            if (!ExecuteGitCommand($"fetch \"{remote}\" \"{branch}\"", GitLocalization.Tr("notify.fetchSuccess")))
+            {
+                return;
+            }
+
+            if (ExecuteGitCommand($"reset --hard {commitHash}", GitLocalization.Tr("notify.pullSuccess")))
             {
                 RefreshData();
             }

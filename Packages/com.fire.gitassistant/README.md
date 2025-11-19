@@ -10,7 +10,7 @@
   - **Stage All**：执行 `git add -A`。
   - **Commit**：输入提交信息并提交。
   - **Push**：推送到远端（支持指定远端与分支）。
-  - **Pull**：拉取远端以保持同步。
+  - **Pull**：打开历史版本窗口，从远端日志中挑选目标版本后再执行拉取与同步。
 - 顶部视觉卡片展示当前分支与远端，并可一键打开[完整使用教程](https://lyzbcy.github.io/posts/Unity%E6%8F%92%E4%BB%B6-Git%E5%8A%A9%E6%89%8B%E5%BC%80%E5%8F%91%E6%8A%A5%E5%91%8A/)。
 - 底部日志窗口以 `git log --graph --oneline` 呈现记录，方便快速回顾。
 
