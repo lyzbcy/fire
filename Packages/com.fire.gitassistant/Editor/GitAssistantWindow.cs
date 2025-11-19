@@ -10,6 +10,9 @@ namespace Fire.GitAssistant
     public sealed class GitAssistantWindow : EditorWindow
     {
         private const float RightPanelMinWidth = 320f;
+        private const string HelpUrl = "https://lyzbcy.github.io/posts/Unity%E6%8F%92%E4%BB%B6-Git%E5%8A%A9%E6%89%8B%E5%BC%80%E5%8F%91%E6%8A%A5%E5%91%8A/";
+
+        private readonly List<string> _remoteOptions = new();
 
         private TreeViewState _treeState;
         private GitTreeView _treeView;
@@ -23,6 +26,9 @@ namespace Fire.GitAssistant
         private string _remoteName = "origin";
         private string _pushBranch = "main";
         private string _errorMessage = string.Empty;
+        private bool _useCustomPushTarget;
+        private string _customPushTarget = string.Empty;
+        private int _remoteIndex = -1;
 
         private Vector2 _logScroll;
         private GUIStyle _cardStyle;
@@ -31,12 +37,25 @@ namespace Fire.GitAssistant
         private GUIStyle _pillStyle;
         private GUIStyle _primaryButtonStyle;
         private GUIStyle _secondaryButtonStyle;
+        private GUIStyle _heroStyle;
+        private GUIStyle _heroTitleStyle;
+        private GUIStyle _heroSubtitleStyle;
+        private GUIStyle _metricBadgeStyle;
+        private GUIStyle _metricLabelStyle;
+        private GUIStyle _metricValueStyle;
+        private GUIStyle _heroHelpButtonStyle;
         private GUIContent _settingsIconContent;
+        private GUIContent _remoteMenuIconContent;
+        private GUIContent _helpIconContent;
+        private Texture2D _heroBackgroundTexture;
+        private Texture2D _metricBackgroundTexture;
 
         private bool HasChanges => _entries != null && _entries.Count > 0;
         private bool CanCommit => HasChanges && !string.IsNullOrWhiteSpace(_commitMessage);
+        private bool CanPull => !string.IsNullOrWhiteSpace(_remoteName) && !string.IsNullOrWhiteSpace(_pushBranch);
+        private bool CanPush => !string.IsNullOrWhiteSpace(GetPushTarget()) && !string.IsNullOrWhiteSpace(_pushBranch);
 
-        [MenuItem("Tools/Fire/Git 助手")]
+        [MenuItem("Tools/Git 助手")]
         public static void ShowWindow()
         {
             var window = GetWindow<GitAssistantWindow>();
@@ -50,6 +69,7 @@ namespace Fire.GitAssistant
             _treeState ??= new TreeViewState();
             _treeView ??= new GitTreeView(_treeState);
             _searchField ??= new SearchField();
+            LoadPreferences();
 
             GitLocalization.LanguageChanged += HandleLanguageChanged;
             titleContent = new GUIContent(GitLocalization.Tr("window.title"));
@@ -76,6 +96,8 @@ namespace Fire.GitAssistant
 
             DrawToolbar();
 
+            EditorGUILayout.Space(6);
+            DrawHeroHeader();
             EditorGUILayout.Space(6);
 
             using (new EditorGUILayout.HorizontalScope(GUILayout.ExpandHeight(true)))
@@ -115,27 +137,87 @@ namespace Fire.GitAssistant
                     }
                 }
 
-                if (GUILayout.Button(GitLocalization.Tr("toolbar.pull"), EditorStyles.toolbarButton, GUILayout.Width(70)))
+                using (new EditorGUI.DisabledScope(!CanPull))
                 {
-                    if (ExecuteGitCommand($"pull {_remoteName} {_pushBranch}", GitLocalization.Tr("notify.pullSuccess")))
+                    if (GUILayout.Button(GitLocalization.Tr("toolbar.pull"), EditorStyles.toolbarButton, GUILayout.Width(70)))
                     {
-                        RefreshData();
+                        TryPull();
                     }
                 }
 
                 GUILayout.FlexibleSpace();
 
                 GUILayout.Label(GitLocalization.Tr("toolbar.remote"), EditorStyles.miniLabel, GUILayout.Width(50));
-                _remoteName = GUILayout.TextField(_remoteName, GUILayout.Width(110));
+                var currentRemote = GUILayout.TextField(_remoteName, GUILayout.Width(140));
+                if (!string.Equals(currentRemote, _remoteName, StringComparison.Ordinal))
+                {
+                    _remoteName = currentRemote;
+                    SavePreferences();
+                }
+                using (new EditorGUI.DisabledScope(_remoteOptions.Count == 0))
+                {
+                    if (GUILayout.Button(_remoteMenuIconContent, EditorStyles.toolbarButton, GUILayout.Width(28)))
+                    {
+                        var rect = GUILayoutUtility.GetLastRect();
+                        ShowRemoteMenu(new Rect(rect.x, rect.yMax, 0, 0));
+                    }
+                }
 
                 GUILayout.Label(GitLocalization.Tr("toolbar.branch"), EditorStyles.miniLabel, GUILayout.Width(45));
-                _pushBranch = GUILayout.TextField(_pushBranch, GUILayout.Width(110));
+                var nextBranch = GUILayout.TextField(_pushBranch, GUILayout.Width(120));
+                if (!string.Equals(nextBranch, _pushBranch, StringComparison.Ordinal))
+                {
+                    _pushBranch = nextBranch;
+                    SavePreferences();
+                }
+
+                if (GUILayout.Button(GitLocalization.Tr("toolbar.help"), EditorStyles.toolbarButton, GUILayout.Width(90)))
+                {
+                    Application.OpenURL(HelpUrl);
+                }
 
                 if (GUILayout.Button(_settingsIconContent, EditorStyles.toolbarButton, GUILayout.Width(26)))
                 {
                     var rect = GUILayoutUtility.GetLastRect();
-                    ShowLanguageMenu(new Rect(rect.x, rect.yMax, 0, 0));
+                    ShowUtilityMenu(new Rect(rect.x, rect.yMax, 0, 0));
                 }
+            }
+        }
+        private void DrawHeroHeader()
+        {
+            using (new EditorGUILayout.VerticalScope(_heroStyle))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    using (new EditorGUILayout.VerticalScope())
+                    {
+                        EditorGUILayout.LabelField(GitLocalization.Tr("hero.headline"), _heroTitleStyle);
+                        EditorGUILayout.LabelField(GitLocalization.Tr("hero.subline"), _heroSubtitleStyle);
+                        EditorGUILayout.Space(6);
+                        using (new EditorGUILayout.HorizontalScope())
+                        {
+                            DrawMetricBadge(GitLocalization.Tr("hero.metric.branch"), string.IsNullOrEmpty(_branch) ? GitLocalization.Tr("status.branchUnknown") : _branch);
+                            DrawMetricBadge(GitLocalization.Tr("hero.metric.remote"), string.IsNullOrEmpty(_remoteName) ? GitLocalization.Tr("toolbar.noRemoteDetected") : _remoteName);
+                        }
+                    }
+
+                    GUILayout.FlexibleSpace();
+
+                    var helpContent = new GUIContent(GitLocalization.Tr("hero.helpButton"), _helpIconContent.image, GitLocalization.Tr("hero.helpTooltip"));
+                    if (GUILayout.Button(helpContent, _heroHelpButtonStyle, GUILayout.Width(170), GUILayout.Height(38)))
+                    {
+                        Application.OpenURL(HelpUrl);
+                    }
+                }
+            }
+        }
+
+        private void DrawMetricBadge(string label, string value)
+        {
+            using (new EditorGUILayout.VerticalScope(_metricBadgeStyle, GUILayout.Width(180)))
+            {
+                EditorGUILayout.LabelField(label, _metricLabelStyle);
+                EditorGUILayout.LabelField(value, _metricValueStyle);
             }
         }
 
@@ -234,6 +316,56 @@ namespace Fire.GitAssistant
                     EditorGUILayout.HelpBox(GitLocalization.Tr("commit.emptyWarning"), MessageType.Info);
                 }
 
+                EditorGUILayout.Space(4);
+                EditorGUILayout.LabelField(GitLocalization.Tr("commit.pushTargetLabel"), EditorStyles.boldLabel);
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label(GitLocalization.Tr("toolbar.remote"), GUILayout.Width(60));
+                    EditorGUI.BeginDisabledGroup(_useCustomPushTarget);
+                    var newRemote = EditorGUILayout.TextField(_remoteName);
+                    EditorGUI.EndDisabledGroup();
+                    if (!_useCustomPushTarget && !string.Equals(newRemote, _remoteName, StringComparison.Ordinal))
+                    {
+                        _remoteName = newRemote;
+                        SavePreferences();
+                    }
+                }
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label(GitLocalization.Tr("toolbar.branch"), GUILayout.Width(60));
+                    var updatedBranch = EditorGUILayout.TextField(_pushBranch);
+                    if (!string.Equals(updatedBranch, _pushBranch, StringComparison.Ordinal))
+                    {
+                        _pushBranch = updatedBranch;
+                        SavePreferences();
+                    }
+                }
+
+                var useCustom = EditorGUILayout.ToggleLeft(GitLocalization.Tr("commit.customPushToggle"), _useCustomPushTarget);
+                if (useCustom != _useCustomPushTarget)
+                {
+                    _useCustomPushTarget = useCustom;
+                    SavePreferences();
+                }
+
+                using (new EditorGUI.DisabledScope(!_useCustomPushTarget))
+                {
+                    var newTarget = EditorGUILayout.TextField(GitLocalization.Tr("commit.customPushTarget"), _customPushTarget);
+                    if (!string.Equals(newTarget, _customPushTarget, StringComparison.Ordinal))
+                    {
+                        _customPushTarget = newTarget;
+                        SavePreferences();
+                    }
+                }
+
+                EditorGUILayout.HelpBox(
+                    _useCustomPushTarget
+                        ? GitLocalization.Tr("commit.customPushHint")
+                        : GitLocalization.Tr("commit.remoteHint", string.IsNullOrWhiteSpace(_remoteName) ? GitLocalization.Tr("toolbar.noRemoteDetected") : _remoteName),
+                    MessageType.Info);
+
                 EditorGUILayout.Space(6);
 
                 using (new EditorGUILayout.HorizontalScope())
@@ -246,7 +378,7 @@ namespace Fire.GitAssistant
                         }
                     }
 
-                    using (new EditorGUI.DisabledScope(string.IsNullOrWhiteSpace(_remoteName) || string.IsNullOrWhiteSpace(_pushBranch)))
+                    using (new EditorGUI.DisabledScope(!CanPush))
                     {
                         if (GUILayout.Button(GitLocalization.Tr("actions.push"), _secondaryButtonStyle))
                         {
@@ -288,7 +420,32 @@ namespace Fire.GitAssistant
 
         private void TryPush()
         {
-            if (ExecuteGitCommand($"push {_remoteName} {_pushBranch}", GitLocalization.Tr("notify.pushSuccess")))
+            if (!CanPush)
+            {
+                _errorMessage = GitLocalization.Tr("errors.pushTargetMissing");
+                return;
+            }
+
+            var target = GetPushTarget();
+            var command = _useCustomPushTarget
+                ? $"push \"{target}\" {_pushBranch}"
+                : $"push {target} {_pushBranch}";
+
+            if (ExecuteGitCommand(command, GitLocalization.Tr("notify.pushSuccess")))
+            {
+                RefreshData();
+            }
+        }
+
+        private void TryPull()
+        {
+            if (!CanPull)
+            {
+                _errorMessage = GitLocalization.Tr("errors.pushTargetMissing");
+                return;
+            }
+
+            if (ExecuteGitCommand($"pull {_remoteName} {_pushBranch}", GitLocalization.Tr("notify.pullSuccess")))
             {
                 RefreshData();
             }
@@ -302,6 +459,7 @@ namespace Fire.GitAssistant
             _treeView?.SetEntries(_entries);
             _statusSummary = BuildSummary(_entries);
             _errorMessage = string.Empty;
+            UpdateRemoteOptions();
 
             if (string.IsNullOrEmpty(_pushBranch) && !string.IsNullOrEmpty(_branch))
             {
@@ -342,9 +500,10 @@ namespace Fire.GitAssistant
             return true;
         }
 
-        private void ShowLanguageMenu(Rect anchorRect)
+        private void ShowUtilityMenu(Rect anchorRect)
         {
             var menu = new GenericMenu();
+            menu.AddDisabledItem(new GUIContent(GitLocalization.Tr("language.selector")));
             foreach (var info in GitLocalization.AvailableLanguages)
             {
                 var language = info.Language;
@@ -352,8 +511,74 @@ namespace Fire.GitAssistant
                 menu.AddItem(new GUIContent(info.DisplayName), isCurrent, () => GitLocalization.SetLanguage(language));
             }
 
+            menu.AddSeparator(string.Empty);
+            menu.AddItem(
+                new GUIContent(GitLocalization.Tr("toolbar.openSettings")),
+                false,
+                () => SettingsService.OpenProjectSettings("Project/Git 助手"));
+
             menu.DropDown(anchorRect);
         }
+
+        private void ShowRemoteMenu(Rect anchorRect)
+        {
+            var menu = new GenericMenu();
+            if (_remoteOptions.Count == 0)
+            {
+                menu.AddDisabledItem(new GUIContent(GitLocalization.Tr("toolbar.noRemoteDetected")));
+            }
+            else
+            {
+                foreach (var remote in _remoteOptions)
+                {
+                    var isCurrent = string.Equals(remote, _remoteName, StringComparison.Ordinal);
+                    menu.AddItem(new GUIContent(remote), isCurrent, () =>
+                    {
+                        _remoteName = remote;
+                        SavePreferences();
+                        Repaint();
+                    });
+                }
+            }
+
+            menu.AddSeparator(string.Empty);
+            menu.AddItem(new GUIContent(GitLocalization.Tr("toolbar.remoteMenuReload")), false, RefreshData);
+            menu.DropDown(anchorRect);
+        }
+
+        private void LoadPreferences()
+        {
+            var prefs = GitAssistantPreferences.Instance;
+            _remoteName = prefs.DefaultRemote;
+            _pushBranch = prefs.DefaultPushBranch;
+            _useCustomPushTarget = prefs.UseCustomPushTarget;
+            _customPushTarget = prefs.CustomPushTarget;
+        }
+
+        private void SavePreferences()
+        {
+            var prefs = GitAssistantPreferences.Instance;
+            prefs.DefaultRemote = _remoteName;
+            prefs.DefaultPushBranch = _pushBranch;
+            prefs.UseCustomPushTarget = _useCustomPushTarget;
+            prefs.CustomPushTarget = _customPushTarget;
+        }
+
+        private void UpdateRemoteOptions()
+        {
+            _remoteOptions.Clear();
+            _remoteOptions.AddRange(GitProcessUtility.GetRemoteNames());
+            if (_remoteOptions.Count == 0)
+            {
+                _remoteIndex = -1;
+                return;
+            }
+
+            var index = _remoteOptions.FindIndex(r => string.Equals(r, _remoteName, StringComparison.Ordinal));
+            _remoteIndex = index;
+        }
+
+        private string GetPushTarget() => _useCustomPushTarget ? _customPushTarget : _remoteName;
 
         private void EnsureStyles()
         {
@@ -395,10 +620,70 @@ namespace Fire.GitAssistant
                     fontSize = 13,
                     fixedHeight = 34
                 };
+
+                _heroBackgroundTexture ??= CreateColorTexture(new Color(0.12f, 0.15f, 0.22f));
+                _metricBackgroundTexture ??= CreateColorTexture(new Color(1f, 1f, 1f, 0.1f));
+
+                _heroStyle = new GUIStyle("HelpBox")
+                {
+                    padding = new RectOffset(18, 18, 16, 16),
+                    margin = new RectOffset(0, 0, 0, 0),
+                    normal = { background = _heroBackgroundTexture }
+                };
+
+                _heroTitleStyle = new GUIStyle(EditorStyles.boldLabel)
+                {
+                    fontSize = 16
+                };
+
+                _heroSubtitleStyle = new GUIStyle(EditorStyles.label)
+                {
+                    wordWrap = true,
+                    fontSize = 12,
+                    normal = { textColor = new Color(0.8f, 0.85f, 0.9f) }
+                };
+
+                _metricBadgeStyle = new GUIStyle(EditorStyles.helpBox)
+                {
+                    normal = { background = _metricBackgroundTexture },
+                    padding = new RectOffset(10, 10, 8, 8),
+                    margin = new RectOffset(0, 8, 0, 0)
+                };
+
+                _metricLabelStyle = new GUIStyle(EditorStyles.miniLabel)
+                {
+                    normal = { textColor = new Color(0.75f, 0.82f, 0.9f) }
+                };
+
+                _metricValueStyle = new GUIStyle(EditorStyles.boldLabel)
+                {
+                    fontSize = 13
+                };
+
+                _heroHelpButtonStyle = new GUIStyle(GUI.skin.button)
+                {
+                    fontSize = 13,
+                    fontStyle = FontStyle.Bold,
+                    fixedHeight = 36,
+                    padding = new RectOffset(12, 12, 6, 6)
+                };
             }
 
             _settingsIconContent ??= EditorGUIUtility.IconContent("_Popup");
             _settingsIconContent.tooltip = GitLocalization.Tr("toolbar.settings.tooltip");
+            _remoteMenuIconContent ??= new GUIContent("...", GitLocalization.Tr("toolbar.remoteMenuTitle"));
+            _remoteMenuIconContent.tooltip = GitLocalization.Tr("toolbar.remoteMenuTitle");
+            _helpIconContent ??= EditorGUIUtility.IconContent("_Help");
+            _helpIconContent.tooltip = GitLocalization.Tr("hero.helpTooltip");
+        }
+
+        private static Texture2D CreateColorTexture(Color color)
+        {
+            var texture = new Texture2D(1, 1);
+            texture.SetPixel(0, 0, color);
+            texture.Apply();
+            texture.hideFlags = HideFlags.HideAndDontSave;
+            return texture;
         }
     }
 }

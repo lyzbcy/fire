@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using UnityEngine;
 
@@ -62,7 +63,7 @@ namespace Fire.GitAssistant
 
                 if (!result.Success && logOnError)
                 {
-                    UnityEngine.Debug.LogError($"[Fire Git Assistant] git {arguments}\n{result.Error}");
+                    UnityEngine.Debug.LogError($"[Git 助手] git {arguments}\n{result.Error}");
                 }
 
                 return result;
@@ -71,7 +72,7 @@ namespace Fire.GitAssistant
             {
                 if (logOnError)
                 {
-                    UnityEngine.Debug.LogError($"[Fire Git Assistant] 执行 git {arguments} 失败: {ex}");
+                    UnityEngine.Debug.LogError($"[Git 助手] 执行 git {arguments} 失败: {ex}");
                 }
                 return new GitProcessResult(false, string.Empty, ex.Message);
             }
@@ -113,6 +114,22 @@ namespace Fire.GitAssistant
             var arguments = $"log --graph --oneline -n {count}";
             var result = Run(arguments, logOnError: false);
             return result.Success ? result.Output : GitLocalization.Tr("log.empty");
+        }
+
+        public static IReadOnlyList<string> GetRemoteNames()
+        {
+            var result = Run("remote", logOnError: false);
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
+            {
+                return Array.Empty<string>();
+            }
+
+            return result.Output
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(r => r.Trim())
+                .Where(r => !string.IsNullOrEmpty(r))
+                .Distinct()
+                .ToArray();
         }
     }
 

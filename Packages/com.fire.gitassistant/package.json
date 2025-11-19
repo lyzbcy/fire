@@ -1,6 +1,6 @@
 {
   "name": "com.fire.gitassistant",
-  "displayName": "Fire Git Assistant",
+  "displayName": "Git 助手",
   "version": "0.1.0",
   "unity": "2021.3",
   "description": "在Unity编辑器内提供Git状态、提交和推送的可视化工具，支持树状视图查看改动并一键推送至GitHub。",
@@ -12,7 +12,7 @@
   ],
   "type": "tool",
   "author": {
-    "name": "Fire Git Assistant",
+    "name": "Git 助手",
     "email": "support@fire-tools.example"
   },
   "dependencies": {}

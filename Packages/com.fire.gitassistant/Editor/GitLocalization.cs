@@ -25,7 +25,7 @@ namespace Fire.GitAssistant
 
     internal static class GitLocalization
     {
-        private const string PrefKey = "Fire.GitAssistant.Language";
+        private const string PrefKey = "GitAssistant.Language";
         private static readonly GitLanguage DefaultLanguage = GitLanguage.ChineseSimplified;
 
         private static readonly LanguageInfo[] LanguageInfos =
@@ -48,7 +48,18 @@ namespace Fire.GitAssistant
                         ["toolbar.remote"] = "远端",
                         ["toolbar.branch"] = "分支",
                         ["toolbar.settings"] = "设置",
-                        ["toolbar.settings.tooltip"] = "选择界面语言",
+                        ["toolbar.settings.tooltip"] = "语言与偏好设置",
+                        ["toolbar.openSettings"] = "打开项目设置",
+                        ["toolbar.remoteMenuTitle"] = "选择远端",
+                        ["toolbar.remoteMenuReload"] = "重新检测远端",
+                        ["toolbar.noRemoteDetected"] = "未检测到远端",
+                        ["toolbar.help"] = "帮助",
+                        ["hero.headline"] = "让提交流程更顺滑",
+                        ["hero.subline"] = "左侧查看改动，右侧填写提交说明，常用的 Git 操作都集中在这里。",
+                        ["hero.metric.branch"] = "当前分支",
+                        ["hero.metric.remote"] = "推送远端",
+                        ["hero.helpButton"] = "查看完整使用教程",
+                        ["hero.helpTooltip"] = "打开在线帮助，了解 Git 助手的全部特性。",
                         ["status.overview"] = "状态总览",
                         ["status.currentBranch"] = "当前分支：{0}",
                         ["status.branchUnknown"] = "未检测到分支",
@@ -63,6 +74,11 @@ namespace Fire.GitAssistant
                         ["commit.messageLabel"] = "提交说明",
                         ["commit.placeholder"] = "描述本次修改的内容与原因...",
                         ["commit.tip"] = "建议简明扼要地说明修改目的、影响和风险。",
+                        ["commit.pushTargetLabel"] = "推送目标",
+                        ["commit.customPushToggle"] = "使用自定义远端地址",
+                        ["commit.customPushTarget"] = "远端地址",
+                        ["commit.customPushHint"] = "如果你的仓库没有配置远端名称，可以直接填写完整 Git URL。",
+                        ["commit.remoteHint"] = "当前将使用远端：{0}",
                         ["commit.emptyWarning"] = "没有可提交的改动。",
                         ["actions.commit"] = "提交",
                         ["actions.push"] = "推送",
@@ -81,7 +97,16 @@ namespace Fire.GitAssistant
                         ["status.renamed"] = "已重命名",
                         ["status.unknown"] = "其它",
                         ["tree.noChanges"] = "暂无改动",
-                        ["language.selector"] = "界面语言"
+                        ["language.selector"] = "界面语言",
+                        ["settings.remoteSection"] = "默认远端",
+                        ["settings.remoteHelp"] = "这里的配置会作为窗口默认值，随时可以在工具栏中覆盖。",
+                        ["settings.defaultRemote"] = "默认远端名称",
+                        ["settings.defaultBranch"] = "默认推送分支",
+                        ["settings.customPushSection"] = "自定义推送目标",
+                        ["settings.customPushToggle"] = "改用完整远端地址",
+                        ["settings.customPushTarget"] = "推送地址",
+                        ["settings.resetDefaults"] = "重置为默认值",
+                        ["errors.pushTargetMissing"] = "请先在工具栏或设置中配置远端与分支。"
                     }
                 },
                 {
@@ -94,7 +119,18 @@ namespace Fire.GitAssistant
                         ["toolbar.remote"] = "Remote",
                         ["toolbar.branch"] = "Branch",
                         ["toolbar.settings"] = "Settings",
-                        ["toolbar.settings.tooltip"] = "Choose interface language",
+                        ["toolbar.settings.tooltip"] = "Language & preferences",
+                        ["toolbar.openSettings"] = "Open Project Settings",
+                        ["toolbar.remoteMenuTitle"] = "Pick remote",
+                        ["toolbar.remoteMenuReload"] = "Rescan remotes",
+                        ["toolbar.noRemoteDetected"] = "No remotes detected",
+                        ["toolbar.help"] = "Help",
+                        ["hero.headline"] = "Smoother Git workflows",
+                        ["hero.subline"] = "Inspect file changes on the left, craft commits on the right, and run common Git commands in one place.",
+                        ["hero.metric.branch"] = "Active branch",
+                        ["hero.metric.remote"] = "Push remote",
+                        ["hero.helpButton"] = "Open full guide",
+                        ["hero.helpTooltip"] = "Opens the online documentation for Git 助手.",
                         ["status.overview"] = "Status overview",
                         ["status.currentBranch"] = "Current branch: {0}",
                         ["status.branchUnknown"] = "No branch detected",
@@ -109,6 +145,11 @@ namespace Fire.GitAssistant
                         ["commit.messageLabel"] = "Message",
                         ["commit.placeholder"] = "Describe what changed and why...",
                         ["commit.tip"] = "Mention the intent and impact in one or two sentences.",
+                        ["commit.pushTargetLabel"] = "Push target",
+                        ["commit.customPushToggle"] = "Use custom remote URL",
+                        ["commit.customPushTarget"] = "Remote URL",
+                        ["commit.customPushHint"] = "Use this when your repository has no named remote configured.",
+                        ["commit.remoteHint"] = "Current remote: {0}",
                         ["commit.emptyWarning"] = "No changes to commit.",
                         ["actions.commit"] = "Commit",
                         ["actions.push"] = "Push",
@@ -127,7 +168,16 @@ namespace Fire.GitAssistant
                         ["status.renamed"] = "Renamed",
                         ["status.unknown"] = "Other",
                         ["tree.noChanges"] = "No pending changes",
-                        ["language.selector"] = "Language"
+                        ["language.selector"] = "Language",
+                        ["settings.remoteSection"] = "Default remote",
+                        ["settings.remoteHelp"] = "These values become the defaults in the Git Assistant window.",
+                        ["settings.defaultRemote"] = "Default remote name",
+                        ["settings.defaultBranch"] = "Default push branch",
+                        ["settings.customPushSection"] = "Custom push target",
+                        ["settings.customPushToggle"] = "Use full remote URL",
+                        ["settings.customPushTarget"] = "Push target",
+                        ["settings.resetDefaults"] = "Reset to defaults",
+                        ["errors.pushTargetMissing"] = "Please configure a remote and branch first."
                     }
                 },
                 {
@@ -140,7 +190,18 @@ namespace Fire.GitAssistant
                         ["toolbar.remote"] = "リモート",
                         ["toolbar.branch"] = "ブランチ",
                         ["toolbar.settings"] = "設定",
-                        ["toolbar.settings.tooltip"] = "UI 言語を選択",
+                        ["toolbar.settings.tooltip"] = "言語と設定",
+                        ["toolbar.openSettings"] = "プロジェクト設定を開く",
+                        ["toolbar.remoteMenuTitle"] = "リモートを選択",
+                        ["toolbar.remoteMenuReload"] = "リモートを再取得",
+                        ["toolbar.noRemoteDetected"] = "リモートが見つかりません",
+                        ["toolbar.help"] = "ヘルプ",
+                        ["hero.headline"] = "Git 作業をもっとスマートに",
+                        ["hero.subline"] = "左で変更を確認し、右でメッセージをまとめて、よく使う Git 操作をワンクリックで実行。",
+                        ["hero.metric.branch"] = "現在のブランチ",
+                        ["hero.metric.remote"] = "プッシュ先リモート",
+                        ["hero.helpButton"] = "オンラインガイドを見る",
+                        ["hero.helpTooltip"] = "Git 助手の詳細ドキュメントをブラウザで開きます。",
                         ["status.overview"] = "ステータス概要",
                         ["status.currentBranch"] = "現在のブランチ：{0}",
                         ["status.branchUnknown"] = "ブランチを検出できません",
@@ -155,6 +216,11 @@ namespace Fire.GitAssistant
                         ["commit.messageLabel"] = "メッセージ",
                         ["commit.placeholder"] = "今回の変更内容と理由を記入してください...",
                         ["commit.tip"] = "目的と影響を簡潔に記載すると共有しやすくなります。",
+                        ["commit.pushTargetLabel"] = "プッシュ先",
+                        ["commit.customPushToggle"] = "カスタム URL を使う",
+                        ["commit.customPushTarget"] = "リモート URL",
+                        ["commit.customPushHint"] = "リモート名が未設定の場合は完全な Git URL を入力してください。",
+                        ["commit.remoteHint"] = "現在のリモート：{0}",
                         ["commit.emptyWarning"] = "コミットできる変更がありません。",
                         ["actions.commit"] = "コミット",
                         ["actions.push"] = "プッシュ",
@@ -173,7 +239,16 @@ namespace Fire.GitAssistant
                         ["status.renamed"] = "リネーム",
                         ["status.unknown"] = "その他",
                         ["tree.noChanges"] = "変更はありません",
-                        ["language.selector"] = "表示言語"
+                        ["language.selector"] = "表示言語",
+                        ["settings.remoteSection"] = "既定のリモート",
+                        ["settings.remoteHelp"] = "ここでの設定はウィンドウの初期値として使用されます。",
+                        ["settings.defaultRemote"] = "既定のリモート名",
+                        ["settings.defaultBranch"] = "既定のプッシュ先ブランチ",
+                        ["settings.customPushSection"] = "カスタムプッシュ先",
+                        ["settings.customPushToggle"] = "完全なリモート URL を使用",
+                        ["settings.customPushTarget"] = "プッシュ URL",
+                        ["settings.resetDefaults"] = "既定値に戻す",
+                        ["errors.pushTargetMissing"] = "まずリモートとブランチを設定してください。"
                     }
                 }
             };
