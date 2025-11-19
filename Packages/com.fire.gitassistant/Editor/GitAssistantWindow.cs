@@ -11,6 +11,7 @@ namespace Fire.GitAssistant
     {
         private const float RightPanelMinWidth = 320f;
         private const string HelpUrl = "https://lyzbcy.github.io/posts/Unity%E6%8F%92%E4%BB%B6-Git%E5%8A%A9%E6%89%8B%E5%BC%80%E5%8F%91%E6%8A%A5%E5%91%8A/";
+        private const float LogEntryApproxHeight = 74f;
 
         private readonly List<string> _remoteOptions = new();
 
@@ -31,6 +32,7 @@ namespace Fire.GitAssistant
         private int _remoteIndex = -1;
 
         private Vector2 _rightPanelScroll;
+        private Vector2 _logHistoryScroll;
         private GUIStyle _cardStyle;
         private GUIStyle _mutedLabelStyle;
         private GUIStyle _pillStyle;
@@ -140,7 +142,7 @@ namespace Fire.GitAssistant
                 GUILayout.Space(10);
 
                 var rightPanelWidth = GetRightPanelWidth();
-                using (new EditorGUILayout.VerticalScope(GUILayout.Width(rightPanelWidth)))
+                using (new EditorGUILayout.VerticalScope(GUILayout.Width(rightPanelWidth), GUILayout.ExpandHeight(true)))
                 {
                     _rightPanelScroll = EditorGUILayout.BeginScrollView(_rightPanelScroll, GUILayout.ExpandHeight(true));
                     DrawCommitCard();
@@ -502,13 +504,37 @@ namespace Fire.GitAssistant
                     return;
                 }
 
-                for (var i = 0; i < _commitHistory.Count; i++)
+                var estimatedHeight = _commitHistory.Count * LogEntryApproxHeight;
+                var maxScrollableHeight = Mathf.Clamp(position.height * 0.4f, 200f, 420f);
+
+                if (estimatedHeight > maxScrollableHeight)
                 {
-                    DrawCommitTimelineEntry(_commitHistory[i], i, _commitHistory.Count);
-                    if (i < _commitHistory.Count - 1)
+                    using (var scroll = new EditorGUILayout.ScrollViewScope(_logHistoryScroll, GUILayout.Height(maxScrollableHeight)))
                     {
-                        EditorGUILayout.Space(4);
+                        _logHistoryScroll = scroll.scrollPosition;
+                        DrawLogEntries();
                     }
+                }
+                else
+                {
+                    DrawLogEntries();
+                }
+            }
+        }
+
+        private void DrawLogEntries()
+        {
+            if (_commitHistory == null || _commitHistory.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _commitHistory.Count; i++)
+            {
+                DrawCommitTimelineEntry(_commitHistory[i], i, _commitHistory.Count);
+                if (i < _commitHistory.Count - 1)
+                {
+                    EditorGUILayout.Space(4);
                 }
             }
         }
