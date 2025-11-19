@@ -520,6 +520,11 @@ namespace Fire.GitAssistant
                 return;
             }
 
+            if (!TryAutoStageAll())
+            {
+                return;
+            }
+
             var sanitized = _commitMessage.Trim().Replace("\"", "\\\"");
             if (ExecuteGitCommand($"commit -m \"{sanitized}\"", GitLocalization.Tr("notify.commitSuccess")))
             {
@@ -608,6 +613,23 @@ namespace Fire.GitAssistant
             _errorMessage = string.Empty;
             ShowNotification(new GUIContent(successMessage));
             return true;
+        }
+
+        private bool TryAutoStageAll()
+        {
+            var result = GitProcessUtility.Run("add -A");
+            if (result.Success)
+            {
+                _errorMessage = string.Empty;
+                return true;
+            }
+
+            _errorMessage = result.Error;
+            EditorUtility.DisplayDialog(
+                GitLocalization.Tr("window.title"),
+                GitLocalization.Tr("dialog.gitError", "add -A", result.Error),
+                GitLocalization.Tr("dialog.ok"));
+            return false;
         }
 
         private void ShowUtilityMenu(Rect anchorRect)
