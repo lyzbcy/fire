@@ -12,7 +12,7 @@ namespace Fire.GitAssistant
         public GitTreeView(TreeViewState state)
             : base(state)
         {
-            showBorder = true;
+            showBorder = false;
             Reload();
         }
 
@@ -29,7 +29,7 @@ namespace Fire.GitAssistant
             {
                 root.children = new List<TreeViewItem>
                 {
-                    new(1, 0, "无改动")
+                    new TreeViewItem(1, 0, GitLocalization.Tr("tree.noChanges"))
                 };
                 return root;
             }

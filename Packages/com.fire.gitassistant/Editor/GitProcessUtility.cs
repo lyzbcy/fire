@@ -112,7 +112,7 @@ namespace Fire.GitAssistant
         {
             var arguments = $"log --graph --oneline -n {count}";
             var result = Run(arguments, logOnError: false);
-            return result.Success ? result.Output : "无法读取 git log";
+            return result.Success ? result.Output : GitLocalization.Tr("log.empty");
         }
     }
 
@@ -130,6 +130,16 @@ namespace Fire.GitAssistant
         }
     }
 
+    internal enum GitChangeKind
+    {
+        Untracked,
+        Added,
+        Modified,
+        Deleted,
+        Renamed,
+        Unknown
+    }
+
     internal readonly struct GitStatusEntry
     {
         public string Path { get; }
@@ -141,15 +151,17 @@ namespace Fire.GitAssistant
             Status = status;
         }
 
-        public string StatusLabel => Status switch
+        public GitChangeKind Kind => Status switch
         {
-            "??" => "Untracked",
-            "A" or "A " or " A" => "Added",
-            "M" or "MM" or " M" or "M " => "Modified",
-            "D" or " D" or "D " => "Deleted",
-            "R" or "R " or " R" => "Renamed",
-            _ => Status
+            "??" => GitChangeKind.Untracked,
+            "A" or "A " or " A" => GitChangeKind.Added,
+            "M" or "MM" or " M" or "M " => GitChangeKind.Modified,
+            "D" or " D" or "D " => GitChangeKind.Deleted,
+            "R" or "R " or " R" => GitChangeKind.Renamed,
+            _ => GitChangeKind.Unknown
         };
+
+        public string StatusLabel => GitLocalization.GetStatusLabel(Kind);
     }
 }
 

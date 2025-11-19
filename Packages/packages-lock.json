@@ -1,5 +1,11 @@
 {
   "dependencies": {
+    "com.fire.gitassistant": {
+      "version": "file:com.fire.gitassistant",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.fire.vrconverter": {
       "version": "file:com.fire.vrconverter",
       "depth": 0,
