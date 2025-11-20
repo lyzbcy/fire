@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEditor.PackageManager;
@@ -8,6 +9,7 @@ using UnityEditor.PackageManager.Requests;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
 
 namespace OneClick.VRConverter.Editor
 {
@@ -33,10 +35,17 @@ namespace OneClick.VRConverter.Editor
             BuildTargetGroup.Android
         };
 
-        private const string GeneratedSettingsFolder = "Assets/VRConverterGenerated/XR";
+        private const string GeneratedRootFolder = "Assets/VRConverterGenerated";
+        private const string GeneratedSettingsFolder = GeneratedRootFolder + "/XR";
         private const string GeneratedGeneralSettingsAsset = GeneratedSettingsFolder + "/XRGeneralSettings.asset";
-        private const string GeneratedInputActionsFolder = "Assets/VRConverterGenerated/InputActions";
+        private const string GeneratedInputActionsFolder = GeneratedRootFolder + "/InputActions";
         private const string DefaultXriInputActionsGuid = "c348712bda248c246b8c49b3db54643f";
+        private const string DeviceSimulatorSettingsTypeName = "UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation.XRDeviceSimulatorSettings";
+        private const string DeviceSimulatorPackageId = "Packages/com.unity.xr.interaction.toolkit";
+        private const string DeviceSimulatorSampleRelativePath = "Samples~/XR Device Simulator";
+        private const string DeviceSimulatorPrefabName = "XR Device Simulator.prefab";
+        private const string GeneratedSimulatorFolder = "Assets/VRConverterGenerated/DeviceSimulator";
+        private const string GeneratedSimulatorPrefabPath = GeneratedSimulatorFolder + "/" + DeviceSimulatorPrefabName;
 
         private const string OpenXrLoaderTypeName = "UnityEngine.XR.OpenXR.OpenXRLoader";
         private const string XrOriginTypeName = "Unity.XR.CoreUtils.XROrigin";
@@ -45,8 +54,41 @@ namespace OneClick.VRConverter.Editor
         private const string InputActionManagerTypeName = "UnityEngine.XR.Interaction.Toolkit.Inputs.InputActionManager";
         private const string TrackedPoseDriverTypeName = "UnityEngine.InputSystem.XR.TrackedPoseDriver";
         private const string XrRayInteractorTypeName = "UnityEngine.XR.Interaction.Toolkit.XRRayInteractor";
+        private const string ModePrefKey = "OneClick.VRConverter.Mode";
+        private const double DiagnosticsRefreshSeconds = 1.5d;
+        private const float WideLayoutThreshold = 760f;
 
-        private Vector2 _scroll;
+        private enum ConverterMode
+        {
+            Guided = 0,
+            Professional = 1
+        }
+
+        private enum RigStrategy
+        {
+            Auto = 0,
+            OnlyUpdateExistingXrOrigin = 1,
+            ForceFallbackRig = 2,
+            SkipSceneChanges = 3
+        }
+
+        private struct ConversionPlan
+        {
+            public bool EnsurePackages;
+            public bool ConfigureProjectSettings;
+            public bool ConvertScene;
+            public bool ConfigureDeviceSimulator;
+            public BuildTargetGroup[] TargetGroups;
+            public RigStrategy RigStrategy;
+            public bool DisableLegacyCamera;
+
+            public bool HasAnyOperation =>
+                EnsurePackages || ConfigureProjectSettings || ConvertScene || ConfigureDeviceSimulator;
+        }
+
+        private static readonly Dictionary<string, Type> _typeCache = new Dictionary<string, Type>();
+        private Vector2 _windowScroll;
+        private Vector2 _logScroll;
         private const string GitAssistantMenuPath = "Tools/Git 助手";
         private const double BackupConfirmationValidSeconds = 300d;
 
@@ -65,11 +107,28 @@ namespace OneClick.VRConverter.Editor
         private DateTime? _lastBackupConfirmationTimeUtc;
         private string _lastBaselineCommitHash;
         private bool _lastConversionSucceeded;
+        private ConverterMode _uiMode = ConverterMode.Guided;
+        private bool _proIncludePackages = true;
+        private bool _proIncludeProjectSettings = true;
+        private bool _proIncludeSceneConversion = true;
+        private bool _proIncludeDeviceSimulator = true;
+        private bool _proPreserveLegacyMainCamera;
+        private RigStrategy _proRigStrategy = RigStrategy.Auto;
+        private readonly Dictionary<BuildTargetGroup, bool> _proTargetGroupToggles = new Dictionary<BuildTargetGroup, bool>();
+        private ProjectDiagnostics _cachedDiagnostics;
+        private double _lastDiagnosticsSampleTime;
 
         private void OnEnable()
         {
             // Unity 恢复布局时 EditorStyles 资源可能尚未就绪，改为延迟初始化
             EditorApplication.delayCall += Repaint;
+            LoadModePreference();
+            InitProTargetGroupToggles();
+        }
+
+        private void OnDisable()
+        {
+            SaveModePreference();
         }
 
         [MenuItem(MenuPath)]
@@ -84,19 +143,35 @@ namespace OneClick.VRConverter.Editor
         {
             InitStyles();
 
-            DrawHeader();
-            EditorGUILayout.Space(6);
+            float scrollViewHeight = Mathf.Max(0f, position.height - 16f);
+            _windowScroll = EditorGUILayout.BeginScrollView(
+                _windowScroll,
+                false,
+                false,
+                GUILayout.Height(scrollViewHeight));
+            {
+                DrawHeader();
+                EditorGUILayout.Space(4);
 
-            DrawQuickActions();
-            EditorGUILayout.Space(8);
+                DrawModeSwitcher();
+                EditorGUILayout.Space(6);
 
-            DrawStepCards();
-            EditorGUILayout.Space(8);
+                DrawCompatibilityInsights();
+                EditorGUILayout.Space(8);
 
-            DrawGitAssistantSupportCard();
-            EditorGUILayout.Space(8);
+                if (_uiMode == ConverterMode.Guided)
+                {
+                    DrawGuidedMode();
+                }
+                else
+                {
+                    DrawProfessionalMode();
+                }
 
-            DrawLogArea();
+                EditorGUILayout.Space(8);
+                DrawLogArea();
+            }
+            EditorGUILayout.EndScrollView();
         }
 
         private void Log(string msg)
@@ -146,6 +221,30 @@ namespace OneClick.VRConverter.Editor
             };
         }
 
+        private void LoadModePreference()
+        {
+            if (EditorPrefs.HasKey(ModePrefKey))
+            {
+                _uiMode = (ConverterMode)EditorPrefs.GetInt(ModePrefKey, (int)ConverterMode.Guided);
+            }
+        }
+
+        private void SaveModePreference()
+        {
+            EditorPrefs.SetInt(ModePrefKey, (int)_uiMode);
+        }
+
+        private void InitProTargetGroupToggles()
+        {
+            foreach (var group in TargetGroups)
+            {
+                if (!_proTargetGroupToggles.ContainsKey(group))
+                {
+                    _proTargetGroupToggles[group] = true;
+                }
+            }
+        }
+
         /// <summary>
         /// 顶部头部区域：标题 + 简短说明 + 状态提示。
         /// </summary>
@@ -178,6 +277,194 @@ namespace OneClick.VRConverter.Editor
                 EditorGUILayout.Space(2);
             }
             EditorGUILayout.EndVertical();
+        }
+
+        private void DrawModeSwitcher()
+        {
+            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.LabelField("模式选择", _stepTitleStyle);
+            EditorGUILayout.Space(2);
+
+            var contents = new[]
+            {
+                new GUIContent("傻瓜式一键"),
+                new GUIContent("专业模式")
+            };
+
+            int selected = GUILayout.Toolbar((int)_uiMode, contents);
+            if (selected != (int)_uiMode)
+            {
+                _uiMode = (ConverterMode)selected;
+                SaveModePreference();
+            }
+
+            var desc = _uiMode == ConverterMode.Guided
+                ? "保持“一键执行”体验，适合第一次接触 VR 项目的同学。"
+                : "自定义执行步骤、目标平台与场景策略，满足不同团队流程。";
+            EditorGUILayout.Space(2);
+            EditorGUILayout.LabelField(desc, EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawCompatibilityInsights()
+        {
+            var diagnostics = GetProjectDiagnostics();
+            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.LabelField("项目体检 & 兼容性建议", _stepTitleStyle);
+            EditorGUILayout.Space(2);
+
+            var rows = new[]
+            {
+                new DiagnosticRow("渲染管线", diagnostics.RenderPipelineLabel, true, diagnostics.RenderPipelineHint),
+                new DiagnosticRow("XR Management", diagnostics.HasXrManagement ? "已检测到" : "尚未安装", diagnostics.HasXrManagement,
+                    diagnostics.HasXrManagement ? "可直接配置 XRGeneralSettings。" : "建议先通过第 1 步或 Package Manager 导入 XR Management。"),
+                new DiagnosticRow("OpenXR Loader", diagnostics.HasOpenXr ? "已就绪" : "未检测到", diagnostics.HasOpenXr,
+                    diagnostics.HasOpenXr ? "可直接为 Standalone / Android 启用。" : "请确认 com.unity.xr.openxr 已导入。"),
+                new DiagnosticRow("XR Interaction Toolkit", diagnostics.HasXri ? "已导入" : "未导入", diagnostics.HasXri,
+                    diagnostics.HasXri ? "将优先创建 XR Origin（Action Based）。" : "缺少时将退回基础 VRRig。"),
+                new DiagnosticRow("输入系统", diagnostics.HasNewInputSystem ? "新输入系统已启用" : "建议启用新输入系统", diagnostics.HasNewInputSystem,
+                    diagnostics.HasNewInputSystem
+                        ? "可自动绑定 XRI Default Input Actions。"
+                        : "未检测到 Unity Input System 类型，可能需要在 Player Settings 中切换或安装该包。"),
+                new DiagnosticRow("VR 模拟设备", diagnostics.HasVrSimulator ? "已配置" : "未配置", diagnostics.HasVrSimulator,
+                    diagnostics.HasVrSimulator
+                        ? "进入 Play 模式后自动实例化 XR Device Simulator。"
+                        : "将在傻瓜式模式下一键配置，或在专业模式中勾选“配置 VR 模拟设备”。"),
+                new DiagnosticRow("Git 助手", diagnostics.HasGitAssistant ? "已安装" : "未安装", diagnostics.HasGitAssistant,
+                    diagnostics.HasGitAssistant ? "可直接使用快速备份 / 回滚。" : "建议先导入 com.fire.gitassistant，以提升备份体验。")
+            };
+
+            int columns = position.width >= WideLayoutThreshold ? 2 : 1;
+            for (int i = 0; i < rows.Length; i += columns)
+            {
+                EditorGUILayout.BeginHorizontal();
+                for (int col = 0; col < columns; col++)
+                {
+                    int index = i + col;
+                    if (index >= rows.Length)
+                        break;
+
+                    DrawDiagnosticRow(rows[index].Title, rows[index].Value, rows[index].Positive, rows[index].Hint);
+                    if (columns > 1 && col == 0)
+                    {
+                        GUILayout.Space(6);
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            EditorGUILayout.EndVertical();
+        }
+
+        private readonly struct DiagnosticRow
+        {
+            public readonly string Title;
+            public readonly string Value;
+            public readonly bool Positive;
+            public readonly string Hint;
+
+            public DiagnosticRow(string title, string value, bool positive, string hint)
+            {
+                Title = title;
+                Value = value;
+                Positive = positive;
+                Hint = hint;
+            }
+        }
+
+        private void DrawDiagnosticRow(string title, string value, bool positive, string hint)
+        {
+            using (new EditorGUILayout.VerticalScope("box"))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField(title, GUILayout.Width(140));
+                    var prevColor = GUI.contentColor;
+                    GUI.contentColor = positive ? new Color(0.2f, 0.7f, 0.4f) : new Color(0.9f, 0.4f, 0.2f);
+                    EditorGUILayout.LabelField(value, EditorStyles.boldLabel);
+                    GUI.contentColor = prevColor;
+                }
+
+                EditorGUILayout.LabelField(hint, EditorStyles.wordWrappedMiniLabel);
+            }
+        }
+
+        private void DrawGuidedMode()
+        {
+            bool wideLayout = position.width >= WideLayoutThreshold;
+            if (wideLayout)
+            {
+                EditorGUILayout.BeginHorizontal();
+                {
+                    using (new EditorGUILayout.VerticalScope(GUILayout.ExpandWidth(true)))
+                    {
+                        DrawQuickActions();
+                        EditorGUILayout.Space(8);
+                        DrawStepCards();
+                    }
+
+                    GUILayout.Space(8);
+
+                    using (new EditorGUILayout.VerticalScope(GUILayout.MaxWidth(320)))
+                    {
+                        DrawGitAssistantSupportCard();
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+            else
+            {
+                DrawQuickActions();
+                EditorGUILayout.Space(8);
+                DrawStepCards();
+                EditorGUILayout.Space(8);
+                DrawGitAssistantSupportCard();
+            }
+        }
+
+        private void DrawProfessionalMode()
+        {
+            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.LabelField("专业模式计划", _stepTitleStyle);
+            EditorGUILayout.Space(2);
+            EditorGUILayout.LabelField("自定义执行步骤与目标平台，适配已有项目结构。", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.Space(4);
+
+            _proIncludePackages = EditorGUILayout.ToggleLeft("XR 依赖检查 / 安装", _proIncludePackages);
+            _proIncludeProjectSettings = EditorGUILayout.ToggleLeft("Project Settings：XR Plug-in 配置", _proIncludeProjectSettings);
+            _proIncludeSceneConversion = EditorGUILayout.ToggleLeft("场景转换（XR Rig / VRRig）", _proIncludeSceneConversion);
+            _proIncludeDeviceSimulator = EditorGUILayout.ToggleLeft("配置 VR 模拟设备（XR Device Simulator）", _proIncludeDeviceSimulator);
+
+            EditorGUILayout.Space(6);
+            EditorGUILayout.LabelField("目标平台", _stepTitleStyle);
+            foreach (var group in TargetGroups)
+            {
+                bool current = _proTargetGroupToggles.TryGetValue(group, out var enabled) ? enabled : true;
+                bool next = EditorGUILayout.ToggleLeft($"为 {group} 配置 XR", current);
+                _proTargetGroupToggles[group] = next;
+            }
+            if (GetProfessionalTargetGroups().Length == 0)
+            {
+                EditorGUILayout.HelpBox("未选择目标平台时将回退到默认（Standalone + Android）。", MessageType.Info);
+            }
+
+            EditorGUILayout.Space(6);
+            using (new EditorGUI.DisabledScope(!_proIncludeSceneConversion))
+            {
+                EditorGUILayout.LabelField("场景转换策略", _stepTitleStyle);
+                _proRigStrategy = (RigStrategy)EditorGUILayout.EnumPopup(new GUIContent("Rig 策略", "选择如何处理 XR Origin / VRRig。"), _proRigStrategy);
+                _proPreserveLegacyMainCamera = EditorGUILayout.ToggleLeft("保留现有 Main Camera（不强制禁用）", _proPreserveLegacyMainCamera);
+            }
+
+            EditorGUILayout.Space(6);
+            if (GUILayout.Button("执行专业模式计划", GUILayout.Height(28)))
+            {
+                RunProfessionalPlan();
+            }
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space(8);
+            DrawGitAssistantSupportCard();
         }
 
         /// <summary>
@@ -218,9 +505,34 @@ namespace OneClick.VRConverter.Editor
         /// </summary>
         private void DrawStepCards()
         {
-            EditorGUILayout.BeginHorizontal();
+            bool stackCards = position.width < WideLayoutThreshold;
 
-            // 第 1 步：XR 包依赖
+            if (!stackCards)
+            {
+                EditorGUILayout.BeginHorizontal();
+            }
+
+            DrawStep1Card();
+
+            if (stackCards)
+            {
+                EditorGUILayout.Space(6);
+            }
+            else
+            {
+                GUILayout.Space(6);
+            }
+
+            DrawStep2Card();
+
+            if (!stackCards)
+            {
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+
+        private void DrawStep1Card()
+        {
             EditorGUILayout.BeginVertical("Box");
             EditorGUILayout.LabelField("第 1 步：准备 XR 依赖包", _stepTitleStyle);
             EditorGUILayout.Space(2);
@@ -242,10 +554,10 @@ namespace OneClick.VRConverter.Editor
             }
 
             EditorGUILayout.EndVertical();
+        }
 
-            GUILayout.Space(6);
-
-            // 第 2 步：XR 设置 + 场景转换
+        private void DrawStep2Card()
+        {
             EditorGUILayout.BeginVertical("Box");
             EditorGUILayout.LabelField("第 2 步：配置项目 & 场景", _stepTitleStyle);
             EditorGUILayout.Space(2);
@@ -267,23 +579,55 @@ namespace OneClick.VRConverter.Editor
 
                 if (GUILayout.Button(btnStep2, GUILayout.Height(24)))
                 {
-                    if (!EnsureBackupReady("“第 2 步：配置项目 & 场景”"))
+                    var plan = new ConversionPlan
                     {
-                        Log("用户取消执行“第 2 步”，原因：尚未完成备份确认。");
-                        return;
-                    }
-
-                    ConfigureXrProjectSettings();
-                    if (ConvertCurrentSceneToVr())
-                    {
-                        HandleConversionCompleted();
-                    }
+                        EnsurePackages = false,
+                        ConfigureProjectSettings = true,
+                        ConvertScene = true,
+                        ConfigureDeviceSimulator = true,
+                        TargetGroups = TargetGroups,
+                        RigStrategy = RigStrategy.Auto,
+                        DisableLegacyCamera = true
+                    };
+                    ExecuteConversionPlan(plan, "“第 2 步：配置项目 & 场景”");
                 }
             }
 
             EditorGUILayout.EndVertical();
+        }
 
-            EditorGUILayout.EndHorizontal();
+        private ProjectDiagnostics GetProjectDiagnostics()
+        {
+            double now = EditorApplication.timeSinceStartup;
+            if (_cachedDiagnostics != null && now - _lastDiagnosticsSampleTime < DiagnosticsRefreshSeconds)
+            {
+                return _cachedDiagnostics;
+            }
+
+            var diagnostics = new ProjectDiagnostics();
+
+            var pipelineAsset = GraphicsSettings.currentRenderPipeline;
+            if (pipelineAsset == null)
+            {
+                diagnostics.RenderPipelineLabel = "内置渲染管线";
+                diagnostics.RenderPipelineHint = "使用 Built-in Render Pipeline，可直接使用模板配置。";
+            }
+            else
+            {
+                diagnostics.RenderPipelineLabel = pipelineAsset.GetType().Name.Replace("PipelineAsset", "");
+                diagnostics.RenderPipelineHint = $"检测到 {pipelineAsset.name}，如使用 URP/HDRP，请确认对应 XR Renderer 已启用。";
+            }
+
+            diagnostics.HasXrManagement = FindType("UnityEngine.XR.Management.XRGeneralSettings, Unity.XR.Management") != null;
+            diagnostics.HasOpenXr = FindType(OpenXrLoaderTypeName) != null;
+            diagnostics.HasXri = FindType(XrOriginTypeName) != null;
+            diagnostics.HasNewInputSystem = FindType("UnityEngine.InputSystem.PlayerInput") != null;
+            diagnostics.HasGitAssistant = IsGitAssistantInstalled();
+            diagnostics.HasVrSimulator = IsVrSimulatorConfigured();
+
+            _cachedDiagnostics = diagnostics;
+            _lastDiagnosticsSampleTime = now;
+            return diagnostics;
         }
 
         private void DrawGitAssistantSupportCard()
@@ -364,7 +708,7 @@ namespace OneClick.VRConverter.Editor
 
             EditorGUILayout.Space(4);
 
-            _scroll = EditorGUILayout.BeginScrollView(_scroll, GUILayout.ExpandHeight(true));
+            _logScroll = EditorGUILayout.BeginScrollView(_logScroll, GUILayout.MinHeight(140));
             EditorGUILayout.TextArea(_log, _logTextStyle, GUILayout.ExpandHeight(true));
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
@@ -372,26 +716,99 @@ namespace OneClick.VRConverter.Editor
 
         private void RunAllSteps()
         {
-            if (!EnsureBackupReady("“一键执行所有步骤（推荐）”"))
+            var plan = new ConversionPlan
             {
-                Log("用户取消执行“一键执行所有步骤”，原因：尚未完成备份确认。");
+                EnsurePackages = true,
+                ConfigureProjectSettings = true,
+                ConvertScene = true,
+                ConfigureDeviceSimulator = true,
+                TargetGroups = TargetGroups,
+                RigStrategy = RigStrategy.Auto,
+                DisableLegacyCamera = true
+            };
+
+            ExecuteConversionPlan(plan, "“一键执行所有步骤（推荐）”");
+        }
+
+        private void ExecuteConversionPlan(ConversionPlan plan, string actionName)
+        {
+            if (!plan.HasAnyOperation)
+            {
+                Log("未选择需要执行的步骤。");
+                return;
+            }
+
+            if (!EnsureBackupReady(actionName))
+            {
+                Log($"用户取消执行 {actionName}，原因：尚未完成备份确认。");
                 return;
             }
 
             _lastConversionSucceeded = false;
-            EnsureXrPackages();
-            if (EditorApplication.isCompiling)
+
+            if (plan.EnsurePackages)
             {
-                Log("Unity 正在导入/编译 XR 包，请等待完成后再执行“第2步”。");
+                EnsureXrPackages();
+            }
+
+            if ((plan.ConfigureProjectSettings || plan.ConvertScene) && EditorApplication.isCompiling)
+            {
+                Log("Unity 正在导入或编译脚本，请等待完成后再执行后续步骤。");
                 return;
             }
 
-                    _lastConversionSucceeded = false;
-            ConfigureXrProjectSettings();
-            if (ConvertCurrentSceneToVr())
+            if (plan.ConfigureProjectSettings)
             {
-                HandleConversionCompleted();
+                ConfigureXrProjectSettings(plan.TargetGroups);
             }
+
+            if (plan.ConvertScene)
+            {
+                bool converted = ConvertCurrentSceneToVr(plan.RigStrategy, plan.DisableLegacyCamera);
+                if (converted)
+                {
+                    HandleConversionCompleted();
+                }
+            }
+
+            if (plan.ConfigureDeviceSimulator)
+            {
+                EnsureDeviceSimulatorConfigured();
+            }
+        }
+
+        private void RunProfessionalPlan()
+        {
+            var targetGroups = GetProfessionalTargetGroups();
+            bool shouldConvertScene = _proIncludeSceneConversion && _proRigStrategy != RigStrategy.SkipSceneChanges;
+
+            var plan = new ConversionPlan
+            {
+                EnsurePackages = _proIncludePackages,
+                ConfigureProjectSettings = _proIncludeProjectSettings,
+                ConvertScene = shouldConvertScene,
+                ConfigureDeviceSimulator = _proIncludeDeviceSimulator,
+                TargetGroups = targetGroups.Length > 0 ? targetGroups : TargetGroups,
+                RigStrategy = _proRigStrategy,
+                DisableLegacyCamera = !_proPreserveLegacyMainCamera
+            };
+
+            if (!plan.HasAnyOperation)
+            {
+                EditorUtility.DisplayDialog("提示", "请至少勾选一个需要执行的步骤。", "好的");
+                return;
+            }
+
+            ExecuteConversionPlan(plan, "“专业模式计划”");
+        }
+
+        private BuildTargetGroup[] GetProfessionalTargetGroups()
+        {
+            return _proTargetGroupToggles
+                .Where(pair => pair.Value)
+                .Select(pair => pair.Key)
+                .Distinct()
+                .ToArray();
         }
 
         /// <summary>
@@ -448,8 +865,14 @@ namespace OneClick.VRConverter.Editor
         /// <summary>
         /// 通过 XR Management API 自动为 Standalone/Android 启用 OpenXR Loader。
         /// </summary>
-        private void ConfigureXrProjectSettings()
+        private void ConfigureXrProjectSettings(IEnumerable<BuildTargetGroup> targetGroups = null)
         {
+            var desiredGroups = (targetGroups ?? TargetGroups)?.Distinct().ToArray() ?? Array.Empty<BuildTargetGroup>();
+            if (desiredGroups.Length == 0)
+            {
+                desiredGroups = TargetGroups;
+            }
+
             var perBuildType = FindType("UnityEditor.XR.Management.XRGeneralSettingsPerBuildTarget, Unity.XR.Management.Editor");
             var generalType = FindType("UnityEngine.XR.Management.XRGeneralSettings, Unity.XR.Management");
             var managerType = FindType("UnityEngine.XR.Management.XRManagerSettings, Unity.XR.Management");
@@ -479,7 +902,7 @@ namespace OneClick.VRConverter.Editor
                 return;
             }
 
-            foreach (var targetGroup in TargetGroups)
+            foreach (var targetGroup in desiredGroups)
             {
                 var generalSettings = GetOrCreateGeneralSettings(perBuildAsset, targetGroup, generalType, getMethod, setMethod);
                 if (generalSettings == null)
@@ -509,10 +932,197 @@ namespace OneClick.VRConverter.Editor
             AssetDatabase.SaveAssets();
         }
 
+        private void EnsureDeviceSimulatorConfigured()
+        {
+            if (!TryGetDeviceSimulatorSettings(true, out var settings, out var settingsType))
+            {
+                return;
+            }
+
+            var autoProp = settingsType.GetProperty("automaticallyInstantiateSimulatorPrefab", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var prefabProp = settingsType.GetProperty("simulatorPrefab", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var editorOnlyProp = settingsType.GetProperty("automaticallyInstantiateInEditorOnly", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            if (autoProp == null || prefabProp == null)
+            {
+                Log("XR Device Simulator 设置不可写，已跳过自动配置。");
+                return;
+            }
+
+            var prefab = FindOrCreateDeviceSimulatorPrefab();
+            if (prefab == null)
+            {
+                Log("未能找到 XR Device Simulator 预制体，请在 Package Manager 中重新导入 XR Device Simulator Sample。");
+                return;
+            }
+
+            bool updated = false;
+            bool autoInstantiate = Convert.ToBoolean(autoProp.GetValue(settings));
+            if (!autoInstantiate)
+            {
+                autoProp.SetValue(settings, true);
+                updated = true;
+            }
+
+            if (editorOnlyProp != null && !(bool)editorOnlyProp.GetValue(settings))
+            {
+                editorOnlyProp.SetValue(settings, true);
+                updated = true;
+            }
+
+            var currentPrefab = prefabProp.GetValue(settings) as GameObject;
+            if (currentPrefab == null || currentPrefab != prefab)
+            {
+                prefabProp.SetValue(settings, prefab);
+                updated = true;
+            }
+
+            if (updated)
+            {
+                EditorUtility.SetDirty(settings);
+                AssetDatabase.SaveAssets();
+                Log("已配置 XR Device Simulator，进入 Play 模式即可使用键鼠模拟 VR 设备。");
+            }
+            else
+            {
+                Log("XR Device Simulator 已处于可用状态。");
+            }
+        }
+
+        private bool TryGetDeviceSimulatorSettings(bool logOnFailure, out ScriptableObject settings, out Type settingsType)
+        {
+            settings = null;
+            settingsType = FindType(DeviceSimulatorSettingsTypeName);
+            if (settingsType == null)
+            {
+                if (logOnFailure)
+                {
+                    Log("当前 XR Interaction Toolkit 版本缺少 XR Device Simulator 设置，已跳过模拟设备配置。");
+                }
+                return false;
+            }
+
+            var instanceProp = settingsType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+            settings = instanceProp?.GetValue(null) as ScriptableObject;
+            if (settings == null)
+            {
+                if (logOnFailure)
+                {
+                    Log("未能创建 XR Device Simulator 设置实例。");
+                }
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool IsVrSimulatorConfigured()
+        {
+            if (!TryGetDeviceSimulatorSettings(false, out var settings, out var settingsType))
+            {
+                return false;
+            }
+
+            var autoProp = settingsType.GetProperty("automaticallyInstantiateSimulatorPrefab", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var prefabProp = settingsType.GetProperty("simulatorPrefab", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (autoProp == null || prefabProp == null)
+            {
+                return false;
+            }
+
+            bool autoInstantiate;
+            GameObject prefab;
+            try
+            {
+                autoInstantiate = Convert.ToBoolean(autoProp.GetValue(settings));
+            }
+            catch
+            {
+                autoInstantiate = false;
+            }
+
+            try
+            {
+                prefab = prefabProp.GetValue(settings) as GameObject;
+            }
+            catch
+            {
+                prefab = null;
+            }
+
+            return autoInstantiate && prefab != null;
+        }
+
+        private GameObject FindOrCreateDeviceSimulatorPrefab()
+        {
+            foreach (var guid in AssetDatabase.FindAssets("XR Device Simulator t:Prefab"))
+            {
+                var assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                if (!assetPath.EndsWith(DeviceSimulatorPrefabName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+                if (prefab != null)
+                {
+                    return prefab;
+                }
+            }
+
+            var generatedPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GeneratedSimulatorPrefabPath);
+            if (generatedPrefab != null)
+            {
+                return generatedPrefab;
+            }
+
+            if (!TryCopyDeviceSimulatorSample())
+            {
+                return null;
+            }
+
+            return AssetDatabase.LoadAssetAtPath<GameObject>(GeneratedSimulatorPrefabPath);
+        }
+
+        private bool TryCopyDeviceSimulatorSample()
+        {
+            var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssetPath(DeviceSimulatorPackageId);
+            if (packageInfo == null)
+            {
+                Log("未能定位 XR Interaction Toolkit 包，无法复制 XR Device Simulator Sample。");
+                return false;
+            }
+
+            var sourcePath = Path.Combine(packageInfo.resolvedPath, DeviceSimulatorSampleRelativePath);
+            if (!Directory.Exists(sourcePath))
+            {
+                Log("当前 XR Interaction Toolkit 版本未包含 XR Device Simulator Sample，已跳过复制。");
+                return false;
+            }
+
+            EnsureDirectoryExists(GeneratedRootFolder);
+
+            var destinationPath = Path.GetFullPath(GeneratedSimulatorFolder);
+            if (Directory.Exists(destinationPath))
+            {
+                FileUtil.DeleteFileOrDirectory(destinationPath);
+                var meta = destinationPath + ".meta";
+                if (File.Exists(meta))
+                {
+                    FileUtil.DeleteFileOrDirectory(meta);
+                }
+            }
+
+            FileUtil.CopyFileOrDirectory(sourcePath, destinationPath);
+            AssetDatabase.Refresh();
+            Log("已自动导入 XR Device Simulator Sample，位于 Assets/VRConverterGenerated/DeviceSimulator。");
+            return true;
+        }
+
         /// <summary>
         /// 根据项目当前安装的包尝试创建 XR Origin；若 XR Interaction Toolkit 不可用，则回退到基础 VR Rig。
         /// </summary>
-        private bool ConvertCurrentSceneToVr()
+        private bool ConvertCurrentSceneToVr(RigStrategy strategy = RigStrategy.Auto, bool disableLegacyMainCamera = true)
         {
             var scene = EditorSceneManager.GetActiveScene();
             if (!scene.IsValid())
@@ -521,18 +1131,47 @@ namespace OneClick.VRConverter.Editor
                 return false;
             }
 
-            DisableLegacyMainCamera();
+            if (strategy == RigStrategy.SkipSceneChanges)
+            {
+                Log("已根据专业模式设置，跳过场景转换步骤。");
+                return false;
+            }
+
+            if (disableLegacyMainCamera)
+            {
+                DisableLegacyMainCamera();
+            }
+            else
+            {
+                Log("专业模式：保留原 Main Camera，不自动禁用。");
+            }
+
+            switch (strategy)
+            {
+                case RigStrategy.OnlyUpdateExistingXrOrigin:
+                    if (TryCreateOrUpdateXrOriginRig(createIfMissing: false))
+                    {
+                        Log("已更新场景中的 XR Origin。");
+                        return true;
+                    }
+
+                    Log("未找到现有 XR Origin，且策略为“仅更新”，未做额外改动。");
+                    return false;
+                case RigStrategy.ForceFallbackRig:
+                    CreateFallbackVrRig();
+                    return true;
+                default:
+                    break;
+            }
 
             if (TryCreateOrUpdateXrOriginRig())
             {
                 Log("XR Origin (XR Interaction Toolkit) 已创建/更新。");
-            }
-            else
-            {
-                Log("XR Interaction Toolkit 或 XR Core Utils 不可用，使用基础 VRRig。");
-                CreateFallbackVrRig();
+                return true;
             }
 
+            Log("XR Interaction Toolkit 或 XR Core Utils 不可用，使用基础 VRRig。");
+            CreateFallbackVrRig();
             return true;
         }
 
@@ -728,7 +1367,7 @@ namespace OneClick.VRConverter.Editor
 
         #region Scene conversion helpers
 
-        private bool TryCreateOrUpdateXrOriginRig()
+        private bool TryCreateOrUpdateXrOriginRig(bool createIfMissing = true)
         {
             var xrOriginType = FindType(XrOriginTypeName);
             if (xrOriginType == null)
@@ -741,6 +1380,11 @@ namespace OneClick.VRConverter.Editor
             {
                 EnsureOriginStructure(existingOrigin.gameObject);
                 return true;
+            }
+
+            if (!createIfMissing)
+            {
+                return false;
             }
 
             var originGo = new GameObject("XR Origin (Action Based)");
@@ -1610,20 +2254,42 @@ namespace OneClick.VRConverter.Editor
             }
         }
 
+        private class ProjectDiagnostics
+        {
+            public string RenderPipelineLabel;
+            public string RenderPipelineHint;
+            public bool HasXrManagement;
+            public bool HasOpenXr;
+            public bool HasXri;
+            public bool HasNewInputSystem;
+            public bool HasGitAssistant;
+            public bool HasVrSimulator;
+        }
+
         private static Type FindType(string fullName)
         {
             if (string.IsNullOrEmpty(fullName)) return null;
 
-            var type = Type.GetType(fullName);
-            if (type != null) return type;
-
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            if (_typeCache.TryGetValue(fullName, out var cached))
             {
-                type = assembly.GetType(fullName);
-                if (type != null) return type;
+                return cached;
             }
 
-            return null;
+            var type = Type.GetType(fullName);
+            if (type == null)
+            {
+                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    type = assembly.GetType(fullName);
+                    if (type != null)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            _typeCache[fullName] = type;
+            return type;
         }
 
         #endregion
