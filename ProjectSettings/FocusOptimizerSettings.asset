@@ -18,10 +18,15 @@ MonoBehaviour:
   _throttleDelaySeconds: 1.5
   _promptOnManualMode: 1
   _showConsoleHints: 1
+  _detectLargeExternalChanges: 1
+  _autoBypassLargeChange: 1
+  _largeChangeThreshold: 200
   _enableEnterPlayModeHelper: 1
   _applyEnterPlayModePreset: 0
   _enterPlayModeOptions: 3
   _autoRestoreEnterPlayMode: 1
-  _lastRefreshDuration: 0.02032269999995151
+  _lastRefreshDuration: 0.32971599999996215
   _lastRefreshReason: "\u9650\u6D41\u5237\u65B0"
-  _lastRefreshEditorTime: 1150.7333478
+  _lastRefreshEditorTime: 1146.8556632
+  _lastDetectedChangeCount: 0
+  _lastRefreshSkippedDueToLargeChange: 0
