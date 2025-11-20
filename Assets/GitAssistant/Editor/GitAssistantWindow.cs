@@ -12,6 +12,9 @@ namespace Fire.GitAssistant
         private const float RightPanelMinWidth = 320f;
         private const string HelpUrl = "https://lyzbcy.github.io/posts/Unity%E6%8F%92%E4%BB%B6-Git%E5%8A%A9%E6%89%8B%E5%BC%80%E5%8F%91%E6%8A%A5%E5%91%8A/";
         private const float LogEntryApproxHeight = 74f;
+        private const float LogEntryHorizontalPadding = 8f;
+        private const float LogEntryVerticalPadding = 6f;
+        private const float LogEntryTimelineWidth = 28f;
 
         private readonly List<string> _remoteOptions = new();
 
@@ -925,25 +928,104 @@ namespace Fire.GitAssistant
 
         private void DrawCommitTimelineEntry(GitCommitEntry entry, int index, int total)
         {
-            using (new EditorGUILayout.HorizontalScope(_logCommitCardStyle))
-            {
-                var timelineRect = GUILayoutUtility.GetRect(28, 54, GUILayout.Width(28), GUILayout.ExpandHeight(true));
-                DrawTimelineGizmo(timelineRect, index, total, entry.Author);
+            var entryHeight = CalculateCommitEntryHeight(entry);
+            var entryRect = GUILayoutUtility.GetRect(GUIContent.none, _logCommitCardStyle, GUILayout.Height(entryHeight), GUILayout.ExpandWidth(true));
 
-                using (new EditorGUILayout.VerticalScope())
-                {
-                    EditorGUILayout.LabelField(string.IsNullOrEmpty(entry.Message) ? "-" : entry.Message, _logCommitTitleStyle);
-                    EditorGUILayout.Space(2);
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        DrawAuthorTag(entry.Author);
-                        GUILayout.Space(6);
-                        EditorGUILayout.LabelField(entry.RelativeTime, _logCommitMetaStyle, GUILayout.Width(90));
-                        GUILayout.Space(4);
-                        EditorGUILayout.LabelField(entry.Hash, _logCommitMetaStyle, GUILayout.Width(70));
-                        GUILayout.FlexibleSpace();
-                    }
-                }
+            GUI.Box(entryRect, GUIContent.none, _logCommitCardStyle);
+
+            if (CanPull)
+            {
+                EditorGUIUtility.AddCursorRect(entryRect, MouseCursor.Link);
+            }
+
+            var timelineRect = new Rect(
+                entryRect.x + LogEntryHorizontalPadding,
+                entryRect.y + LogEntryVerticalPadding,
+                LogEntryTimelineWidth,
+                entryRect.height - LogEntryVerticalPadding * 2f);
+            DrawTimelineGizmo(timelineRect, index, total, entry.Author);
+
+            var contentRect = new Rect(
+                timelineRect.xMax + 10f,
+                entryRect.y + LogEntryVerticalPadding,
+                entryRect.width - (timelineRect.width + LogEntryHorizontalPadding * 2f + 10f),
+                entryRect.height - LogEntryVerticalPadding * 2f);
+
+            var message = string.IsNullOrEmpty(entry.Message) ? "-" : entry.Message;
+            var messageContent = new GUIContent(message);
+            var messageHeight = _logCommitTitleStyle.CalcHeight(messageContent, contentRect.width);
+            var messageRect = new Rect(contentRect.x, contentRect.y, contentRect.width, messageHeight);
+            GUI.Label(messageRect, messageContent, _logCommitTitleStyle);
+
+            var metaRect = new Rect(contentRect.x, messageRect.yMax + 4f, contentRect.width, 20f);
+            DrawCommitMetaRow(metaRect, entry);
+
+            HandleCommitEntryClick(entryRect, entry);
+        }
+
+        private float CalculateCommitEntryHeight(in GitCommitEntry entry)
+        {
+            if (_logCommitTitleStyle == null)
+            {
+                EnsureStyles();
+            }
+
+            var textWidth = Mathf.Max(
+                160f,
+                GetRightPanelWidth() - (LogEntryTimelineWidth + LogEntryHorizontalPadding * 2f + 16f));
+            var message = string.IsNullOrEmpty(entry.Message) ? "-" : entry.Message;
+            var content = new GUIContent(message);
+            var messageHeight = _logCommitTitleStyle.CalcHeight(content, textWidth);
+            return Mathf.Max(LogEntryApproxHeight, messageHeight + 34f);
+        }
+
+        private void DrawCommitMetaRow(Rect rect, in GitCommitEntry entry)
+        {
+            var authorWidth = Mathf.Min(140f, rect.width * 0.4f);
+            var authorRect = new Rect(rect.x, rect.y, authorWidth, EditorGUIUtility.singleLineHeight + 4f);
+            DrawAuthorTag(authorRect, entry.Author);
+
+            var timeRect = new Rect(authorRect.xMax + 6f, rect.y + 2f, 110f, EditorGUIUtility.singleLineHeight);
+            GUI.Label(timeRect, entry.RelativeTime, _logCommitMetaStyle);
+
+            var hashContent = new GUIContent(entry.Hash);
+            var hashSize = _logCommitMetaStyle.CalcSize(hashContent);
+            var hashRect = new Rect(rect.xMax - hashSize.x, rect.y + 2f, hashSize.x, hashSize.y);
+            GUI.Label(hashRect, hashContent, _logCommitMetaStyle);
+        }
+
+        private void HandleCommitEntryClick(Rect rect, in GitCommitEntry entry)
+        {
+            var evt = Event.current;
+            if (evt.type == EventType.MouseUp && evt.button == 0 && rect.Contains(evt.mousePosition))
+            {
+                PromptHistoricalPull(entry);
+                evt.Use();
+            }
+        }
+
+        private void PromptHistoricalPull(in GitCommitEntry entry)
+        {
+            if (!CanPull)
+            {
+                _errorMessage = GitLocalization.Tr("errors.pushTargetMissing");
+                return;
+            }
+
+            var confirmed = EditorUtility.DisplayDialog(
+                GitLocalization.Tr("log.pullDialogTitle"),
+                GitLocalization.Tr(
+                    "log.pullDialogMessage",
+                    entry.Hash,
+                    string.IsNullOrEmpty(entry.Message) ? "-" : entry.Message,
+                    _remoteName,
+                    _pushBranch),
+                GitLocalization.Tr("log.pullDialogConfirm"),
+                GitLocalization.Tr("log.pullDialogCancel"));
+
+            if (confirmed)
+            {
+                HandleHistoricalPull(_remoteName, _pushBranch, entry.Hash);
             }
         }
 
@@ -974,15 +1056,13 @@ namespace Fire.GitAssistant
             Handles.EndGUI();
         }
 
-        private void DrawAuthorTag(string author)
+        private void DrawAuthorTag(Rect rect, string author)
         {
             var display = string.IsNullOrWhiteSpace(author) ? "-" : author;
-            var content = new GUIContent(display);
-            var rect = GUILayoutUtility.GetRect(content, _authorTagStyle, GUILayout.ExpandWidth(false));
             EditorGUI.DrawRect(rect, GetAuthorColor(author));
             var innerRect = new Rect(rect.x + 1, rect.y + 1, rect.width - 2, rect.height - 2);
             EditorGUI.DrawRect(innerRect, new Color(0f, 0f, 0f, 0.35f));
-            GUI.Label(rect, content, _authorTagStyle);
+            GUI.Label(rect, display, _authorTagStyle);
         }
 
         private Color GetAuthorColor(string author)

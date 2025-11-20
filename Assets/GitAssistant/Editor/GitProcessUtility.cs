@@ -160,6 +160,15 @@ namespace Fire.GitAssistant
                 return Array.Empty<GitCommitEntry>();
             }
 
+            var fetchResult = Run($"fetch \"{remote}\" \"{branch}\"", logOnError: false);
+            if (!fetchResult.Success)
+            {
+                error = string.IsNullOrWhiteSpace(fetchResult.Error)
+                    ? GitLocalization.Tr("pullPicker.fetchFailed")
+                    : fetchResult.Error;
+                return Array.Empty<GitCommitEntry>();
+            }
+
             var format = "%h%x1F%an%x1F%cr%x1F%s";
             var arguments = $"log -n {count} --pretty=format:\"{format}\" {remote}/{branch}";
             var result = Run(arguments, logOnError: false);

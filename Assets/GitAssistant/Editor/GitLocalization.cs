@@ -89,6 +89,10 @@ namespace Fire.GitAssistant
                         ["notify.fetchSuccess"] = "远端信息已更新",
                         ["log.title"] = "最近提交 (git log --graph)",
                         ["log.empty"] = "暂无日志，可先进行一次提交。",
+                        ["log.pullDialogTitle"] = "拉取到该提交",
+                        ["log.pullDialogMessage"] = "即将从 {2}/{3} 获取提交 {0} 并执行硬重置。\n\n{1}\n\n注意：未提交的改动会被丢弃，确定继续？",
+                        ["log.pullDialogConfirm"] = "确认拉取",
+                        ["log.pullDialogCancel"] = "取消",
                         ["dialog.gitError"] = "执行 git {0} 失败：\n{1}",
                         ["dialog.ok"] = "确定",
                         ["status.untracked"] = "未跟踪",
@@ -115,7 +119,8 @@ namespace Fire.GitAssistant
                         ["pullPicker.confirm"] = "拉取所选版本",
                         ["pullPicker.cancel"] = "取消",
                         ["pullPicker.refresh"] = "重新获取",
-                        ["pullPicker.invalidTarget"] = "远端或分支未配置，无法获取历史。"
+                        ["pullPicker.invalidTarget"] = "远端或分支未配置，无法获取历史。",
+                        ["pullPicker.fetchFailed"] = "无法刷新远端信息，请检查网络或凭据。"
                     }
                 },
                 {
@@ -169,6 +174,10 @@ namespace Fire.GitAssistant
                         ["notify.fetchSuccess"] = "Remote refs refreshed",
                         ["log.title"] = "Recent commits (git log --graph)",
                         ["log.empty"] = "Log is empty. Make a commit to get started.",
+                        ["log.pullDialogTitle"] = "Pull to this commit",
+                        ["log.pullDialogMessage"] = "Fetch commit {0} from {2}/{3} and perform a hard reset.\n\n{1}\n\nWarning: uncommitted changes will be lost. Continue?",
+                        ["log.pullDialogConfirm"] = "Pull here",
+                        ["log.pullDialogCancel"] = "Cancel",
                         ["dialog.gitError"] = "git {0} failed:\n{1}",
                         ["dialog.ok"] = "OK",
                         ["status.untracked"] = "Untracked",
@@ -195,7 +204,8 @@ namespace Fire.GitAssistant
                         ["pullPicker.confirm"] = "Pull selected revision",
                         ["pullPicker.cancel"] = "Cancel",
                         ["pullPicker.refresh"] = "Refresh list",
-                        ["pullPicker.invalidTarget"] = "Remote or branch missing. Cannot read history."
+                        ["pullPicker.invalidTarget"] = "Remote or branch missing. Cannot read history.",
+                        ["pullPicker.fetchFailed"] = "Unable to refresh remote refs. Check network or credentials."
                     }
                 },
                 {
@@ -249,6 +259,10 @@ namespace Fire.GitAssistant
                         ["notify.fetchSuccess"] = "リモート情報を更新しました",
                         ["log.title"] = "直近のコミット (git log --graph)",
                         ["log.empty"] = "履歴はまだありません。まずはコミットしましょう。",
+                        ["log.pullDialogTitle"] = "このコミットへ移動",
+                        ["log.pullDialogMessage"] = "{2}/{3} からコミット {0} を取得してハードリセットします。\n\n{1}\n\n未コミットの変更は失われます。続行しますか？",
+                        ["log.pullDialogConfirm"] = "このコミットに移動",
+                        ["log.pullDialogCancel"] = "キャンセル",
                         ["dialog.gitError"] = "git {0} に失敗しました：\n{1}",
                         ["dialog.ok"] = "OK",
                         ["status.untracked"] = "未追跡",
@@ -275,7 +289,8 @@ namespace Fire.GitAssistant
                         ["pullPicker.confirm"] = "選択した履歴を取得",
                         ["pullPicker.cancel"] = "キャンセル",
                         ["pullPicker.refresh"] = "再取得",
-                        ["pullPicker.invalidTarget"] = "リモートまたはブランチが未設定のため、履歴を取得できません。"
+                        ["pullPicker.invalidTarget"] = "リモートまたはブランチが未設定のため、履歴を取得できません。",
+                        ["pullPicker.fetchFailed"] = "リモート情報を更新できません。ネットワークや認証を確認してください。"
                     }
                 }
             };
