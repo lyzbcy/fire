@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -117,6 +118,8 @@ namespace OneClick.VRConverter.Editor
         private readonly Dictionary<BuildTargetGroup, bool> _proTargetGroupToggles = new Dictionary<BuildTargetGroup, bool>();
         private ProjectDiagnostics _cachedDiagnostics;
         private double _lastDiagnosticsSampleTime;
+        private bool _promptedStarterAssets;
+        private bool _promptedDeviceSimulatorSample;
 
         private void OnEnable()
         {
@@ -953,6 +956,7 @@ namespace OneClick.VRConverter.Editor
             if (prefab == null)
             {
                 Log("未能找到 XR Device Simulator 预制体，请在 Package Manager 中重新导入 XR Device Simulator Sample。");
+                PromptDeviceSimulatorSampleImport();
                 return;
             }
 
@@ -1573,6 +1577,238 @@ namespace OneClick.VRConverter.Editor
 
         #endregion
 
+        #region Sample import helpers
+
+        private void PromptStarterAssetsImport()
+        {
+            const string packageName = "com.unity.xr.interaction.toolkit";
+            const string sampleName = "Starter Assets";
+            PromptSampleImport(
+                ref _promptedStarterAssets,
+                "缺少 XRI Starter Assets",
+                "为了绑定默认输入，需要导入 XR Interaction Toolkit 自带的 Starter Assets（其中包含 “XRI Default Input Actions.inputactions”）。\n\n是否现在导入？",
+                packageName,
+                sampleName);
+        }
+
+        private void PromptDeviceSimulatorSampleImport()
+        {
+            const string packageName = "com.unity.xr.interaction.toolkit";
+            const string sampleName = "XR Device Simulator";
+            PromptSampleImport(
+                ref _promptedDeviceSimulatorSample,
+                "缺少 XR Device Simulator Sample",
+                "若要启用键鼠模拟 VR 设备，需要导入 XR Device Simulator Sample。\n\n是否现在导入？",
+                packageName,
+                sampleName);
+        }
+
+        private void PromptSampleImport(ref bool promptFlag, string title, string message, string packageName, string sampleDisplayName)
+        {
+            if (promptFlag)
+            {
+                return;
+            }
+
+            promptFlag = true;
+            int option = EditorUtility.DisplayDialogComplex(
+                title,
+                message,
+                "一键导入（推荐）",
+                "稍后处理",
+                "打开 Package Manager");
+
+            switch (option)
+            {
+                case 0:
+                    if (TryImportPackageSample(packageName, sampleDisplayName))
+                    {
+                        EditorUtility.DisplayDialog("导入完成", $"{sampleDisplayName} Sample 已导入，工具会在下一次执行时自动继续。", "好的");
+                    }
+                    else
+                    {
+                        EditorUtility.DisplayDialog("自动导入失败", $"未能自动导入 {sampleDisplayName} Sample，将尝试打开 Package Manager。", "好的");
+                        TryOpenPackageManagerSamples(packageName, sampleDisplayName);
+                    }
+                    break;
+                case 1:
+                    Log($"用户选择稍后导入 {sampleDisplayName} Sample。");
+                    break;
+                case 2:
+                    TryOpenPackageManagerSamples(packageName, sampleDisplayName);
+                    break;
+            }
+        }
+
+        private bool TryImportPackageSample(string packageName, string sampleDisplayName)
+        {
+            var sampleType = FindType("UnityEditor.PackageManager.Sample, UnityEditor.PackageManagerUIModule")
+                             ?? FindType("UnityEditor.PackageManager.Sample");
+            if (sampleType == null)
+            {
+                return false;
+            }
+
+            var findMethods = sampleType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(m => m.Name == "FindByPackage")
+                .ToArray();
+            if (findMethods.Length == 0)
+            {
+                return false;
+            }
+
+            object samplesObj = null;
+            foreach (var method in findMethods)
+            {
+                var parameters = method.GetParameters();
+                var args = new object[parameters.Length];
+                if (parameters.Length > 0)
+                {
+                    args[0] = packageName;
+                }
+
+                try
+                {
+                    samplesObj = method.Invoke(null, args);
+                    if (samplesObj != null)
+                    {
+                        break;
+                    }
+                }
+                catch
+                {
+                    // 忽略并尝试下一个重载
+                }
+            }
+
+            if (samplesObj == null)
+            {
+                return false;
+            }
+
+            if (!(samplesObj is IEnumerable enumerable))
+            {
+                return false;
+            }
+
+            var displayNameProp = sampleType.GetProperty("displayName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+            var importMethod = sampleType.GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .FirstOrDefault(m => m.Name == "Import");
+
+            if (displayNameProp == null || importMethod == null)
+            {
+                return false;
+            }
+
+            foreach (var sample in enumerable)
+            {
+                if (sample == null)
+                {
+                    continue;
+                }
+
+                var displayName = displayNameProp.GetValue(sample) as string;
+                if (!string.Equals(displayName, sampleDisplayName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var importParams = importMethod.GetParameters();
+                var args = importParams.Length == 0 ? null : new object[importParams.Length];
+                try
+                {
+                    importMethod.Invoke(sample, args);
+                    AssetDatabase.Refresh();
+                    Log($"已自动导入 {sampleDisplayName} Sample。");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Log($"自动导入 {sampleDisplayName} 失败：{ex.Message}");
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        private bool TryOpenPackageManagerSamples(string packageName, string sampleDisplayName)
+        {
+            if (TryInvokePackageManagerOpen(packageName))
+            {
+                var msg = $"已打开 Package Manager，已尝试定位 {packageName}。请在 Samples 面板中导入 {sampleDisplayName}。";
+                Log(msg);
+                EditorUtility.DisplayDialog("已打开 Package Manager", msg, "好的");
+                return true;
+            }
+
+            if (EditorApplication.ExecuteMenuItem("Window/Package Manager"))
+            {
+                var fallbackMsg = $"已打开 Package Manager。请手动选择 {packageName} 并导入 {sampleDisplayName} Sample。";
+                Log(fallbackMsg);
+                EditorUtility.DisplayDialog("请手动导入", fallbackMsg, "好的");
+                return true;
+            }
+
+            Log("未能自动打开 Package Manager，请通过菜单 Window/Package Manager 手动打开。");
+            EditorUtility.DisplayDialog("无法打开 Package Manager", "请从菜单 Window/Package Manager 手动打开，然后导入所需 Sample。", "好的");
+            return false;
+        }
+
+        private bool TryInvokePackageManagerOpen(string packageName)
+        {
+            var typeNames = new[]
+            {
+                "UnityEditor.PackageManager.UI.Window, UnityEditor.PackageManagerUIModule",
+                "UnityEditor.PackageManager.UI.PackageManagerWindow, UnityEditor.PackageManagerUIModule",
+                "UnityEditor.PackageManager.UI.Window"
+            };
+
+            foreach (var typeName in typeNames)
+            {
+                var windowType = FindType(typeName);
+                if (windowType == null)
+                {
+                    continue;
+                }
+
+                var openMethods = windowType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                    .Where(m => m.Name == "Open")
+                    .ToArray();
+
+                foreach (var method in openMethods)
+                {
+                    var parameters = method.GetParameters();
+                    try
+                    {
+                        if (parameters.Length == 0)
+                        {
+                            method.Invoke(null, null);
+                            return true;
+                        }
+
+                        var args = new object[parameters.Length];
+                        args[0] = packageName;
+                        for (int i = 1; i < args.Length; i++)
+                        {
+                            args[i] = null;
+                        }
+
+                        method.Invoke(null, args);
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"打开 Package Manager 失败：{ex.Message}");
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        #endregion
+
         #region Input Action helpers
 
         private struct ControllerActionBinding
@@ -1808,6 +2044,7 @@ namespace OneClick.VRConverter.Editor
             if (asset == null)
             {
                 Log("未在项目中找到“XRI Default Input Actions.inputactions”。请在 Package Manager 中重新导入 XR Interaction Toolkit 的 Starter Assets。");
+                PromptStarterAssetsImport();
                 return null;
             }
 
