@@ -47,6 +47,9 @@ namespace OneClick.VRConverter.Editor
         private const string XrRayInteractorTypeName = "UnityEngine.XR.Interaction.Toolkit.XRRayInteractor";
 
         private Vector2 _scroll;
+        private const string GitAssistantMenuPath = "Tools/Git 助手";
+        private const double BackupConfirmationValidSeconds = 300d;
+
         private string _log = "";
         private readonly List<AddRequest> _pendingAddRequests = new List<AddRequest>();
         private bool _isMonitoringAddRequests;
@@ -59,6 +62,9 @@ namespace OneClick.VRConverter.Editor
 
         private InputActionAsset _cachedDefaultInputActions;
         private readonly Dictionary<string, InputActionReference> _actionReferenceCache = new Dictionary<string, InputActionReference>();
+        private DateTime? _lastBackupConfirmationTimeUtc;
+        private string _lastBaselineCommitHash;
+        private bool _lastConversionSucceeded;
 
         private void OnEnable()
         {
@@ -85,6 +91,9 @@ namespace OneClick.VRConverter.Editor
             EditorGUILayout.Space(8);
 
             DrawStepCards();
+            EditorGUILayout.Space(8);
+
+            DrawGitAssistantSupportCard();
             EditorGUILayout.Space(8);
 
             DrawLogArea();
@@ -258,14 +267,83 @@ namespace OneClick.VRConverter.Editor
 
                 if (GUILayout.Button(btnStep2, GUILayout.Height(24)))
                 {
+                    if (!EnsureBackupReady("“第 2 步：配置项目 & 场景”"))
+                    {
+                        Log("用户取消执行“第 2 步”，原因：尚未完成备份确认。");
+                        return;
+                    }
+
                     ConfigureXrProjectSettings();
-                    ConvertCurrentSceneToVr();
+                    if (ConvertCurrentSceneToVr())
+                    {
+                        HandleConversionCompleted();
+                    }
                 }
             }
 
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawGitAssistantSupportCard()
+        {
+            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.LabelField("Git 助手联动（备份 & 回滚）", _stepTitleStyle);
+            EditorGUILayout.Space(2);
+
+            var gitAvailable = IsGitAssistantInstalled();
+            var description = gitAvailable
+                ? "检测到已安装 Git 助手：执行 VR 转换前请完成一次提交/标签备份，转换成功后可利用下方按钮快速回滚。"
+                : "尚未检测到 Git 助手。建议先在 Package Manager 中导入 com.fire.gitassistant，以便执行自动备份与回滚。";
+            EditorGUILayout.LabelField(description, EditorStyles.wordWrappedMiniLabel);
+
+            EditorGUILayout.Space(4);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(!gitAvailable))
+                {
+                    if (GUILayout.Button("打开 Git 助手", GUILayout.Height(24)))
+                    {
+                        if (!OpenGitAssistantWindow())
+                        {
+                            EditorUtility.DisplayDialog("提示", "未能打开 Git 助手，请确认已正确安装。", "好的");
+                        }
+                    }
+
+                    if (GUILayout.Button("使用 Git 助手快速备份", GUILayout.Height(24)))
+                    {
+                        TriggerQuickBackupFlow();
+                    }
+                }
+            }
+
+            EditorGUILayout.Space(2);
+
+            bool canRollback = gitAvailable && _lastConversionSucceeded && !string.IsNullOrEmpty(_lastBaselineCommitHash);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(!canRollback))
+                {
+                    if (GUILayout.Button("回滚到转换前版本", GUILayout.Height(24)))
+                    {
+                        AttemptRollbackToBaseline();
+                    }
+                }
+
+                GUILayout.Space(6);
+                var baselineLabel = canRollback
+                    ? $"记录的提交：{GetShortHash(_lastBaselineCommitHash)}"
+                    : "尚未记录可回滚的提交";
+                EditorGUILayout.LabelField(baselineLabel, EditorStyles.wordWrappedMiniLabel);
+            }
+
+            if (!gitAvailable)
+            {
+                EditorGUILayout.HelpBox("安装 Git 助手后，可在此窗口中获得自动备份与回滚按钮。", MessageType.Info);
+            }
+
+            EditorGUILayout.EndVertical();
         }
 
         /// <summary>
@@ -294,6 +372,13 @@ namespace OneClick.VRConverter.Editor
 
         private void RunAllSteps()
         {
+            if (!EnsureBackupReady("“一键执行所有步骤（推荐）”"))
+            {
+                Log("用户取消执行“一键执行所有步骤”，原因：尚未完成备份确认。");
+                return;
+            }
+
+            _lastConversionSucceeded = false;
             EnsureXrPackages();
             if (EditorApplication.isCompiling)
             {
@@ -301,8 +386,12 @@ namespace OneClick.VRConverter.Editor
                 return;
             }
 
+                    _lastConversionSucceeded = false;
             ConfigureXrProjectSettings();
-            ConvertCurrentSceneToVr();
+            if (ConvertCurrentSceneToVr())
+            {
+                HandleConversionCompleted();
+            }
         }
 
         /// <summary>
@@ -423,13 +512,13 @@ namespace OneClick.VRConverter.Editor
         /// <summary>
         /// 根据项目当前安装的包尝试创建 XR Origin；若 XR Interaction Toolkit 不可用，则回退到基础 VR Rig。
         /// </summary>
-        private void ConvertCurrentSceneToVr()
+        private bool ConvertCurrentSceneToVr()
         {
             var scene = EditorSceneManager.GetActiveScene();
             if (!scene.IsValid())
             {
                 Log("当前没有打开的场景，无法转换。");
-                return;
+                return false;
             }
 
             DisableLegacyMainCamera();
@@ -442,6 +531,18 @@ namespace OneClick.VRConverter.Editor
             {
                 Log("XR Interaction Toolkit 或 XR Core Utils 不可用，使用基础 VRRig。");
                 CreateFallbackVrRig();
+            }
+
+            return true;
+        }
+
+        private void HandleConversionCompleted()
+        {
+            _lastConversionSucceeded = true;
+            Log("VR 场景转换完成，可以使用下方 Git 按钮创建备份或回滚。");
+            if (!string.IsNullOrEmpty(_lastBaselineCommitHash))
+            {
+                Log($"已记录转换前的 Git 提交：{_lastBaselineCommitHash}");
             }
         }
 
@@ -1068,6 +1169,321 @@ namespace OneClick.VRConverter.Editor
 
             _cachedDefaultInputActions = asset;
             return _cachedDefaultInputActions;
+        }
+
+        #endregion
+
+        #region Git 助手集成
+
+        private bool IsGitAssistantInstalled()
+        {
+            return FindType("Fire.GitAssistant.GitAssistantWindow") != null &&
+                   FindType("Fire.GitAssistant.GitProcessUtility") != null;
+        }
+
+        private bool OpenGitAssistantWindow()
+        {
+            if (!IsGitAssistantInstalled())
+            {
+                return false;
+            }
+
+            return EditorApplication.ExecuteMenuItem(GitAssistantMenuPath);
+        }
+
+        private void TriggerQuickBackupFlow()
+        {
+            if (!IsGitAssistantInstalled())
+            {
+                EditorUtility.DisplayDialog("提示", "当前项目未安装 Git 助手，无法执行快速备份。", "好的");
+                return;
+            }
+
+            if (TryAutoBackupWithGitAssistant(out var message))
+            {
+                Log(message);
+                EditorUtility.DisplayDialog("备份完成", message, "好的");
+                MarkBackupConfirmed();
+            }
+            else
+            {
+                EditorUtility.DisplayDialog("备份失败", message, "好的");
+            }
+        }
+
+        private void AttemptRollbackToBaseline()
+        {
+            if (!IsGitAssistantInstalled())
+            {
+                EditorUtility.DisplayDialog("无法回滚", "请先安装 Git 助手后再尝试回滚。", "好的");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(_lastBaselineCommitHash))
+            {
+                EditorUtility.DisplayDialog("无法回滚", "当前会话未记录转换前的 Git 提交，无法执行自动回滚。", "好的");
+                return;
+            }
+
+            if (!EditorUtility.DisplayDialog(
+                    "确认回滚？",
+                    $"将使用 git reset --hard {_lastBaselineCommitHash} 恢复到转换前的版本。\n\n该操作会丢弃当前所有未提交的改动，确定要继续吗？",
+                    "确认回滚",
+                    "取消"))
+            {
+                return;
+            }
+
+            if (TryRunGitAssistantCommand($"reset --hard {_lastBaselineCommitHash}", out var output, out var error))
+            {
+                AssetDatabase.Refresh();
+                _lastConversionSucceeded = false;
+                EditorUtility.DisplayDialog("回滚完成", "已恢复到转换前的 Git 版本。", "好的");
+                Log($"Git 回滚完成：{output}");
+            }
+            else
+            {
+                var reason = string.IsNullOrWhiteSpace(error) ? "Git 命令执行失败，请查看控制台。" : error;
+                EditorUtility.DisplayDialog("回滚失败", reason, "好的");
+                Log($"回滚失败：{reason}");
+            }
+        }
+
+        private bool EnsureBackupReady(string actionName)
+        {
+            if (!NeedsBackupConfirmation())
+            {
+                return true;
+            }
+
+            if (!IsGitAssistantInstalled())
+            {
+                bool confirmed = EditorUtility.DisplayDialog(
+                    "执行前请备份",
+                    $"即将执行 {actionName}，该操作会修改 XR 依赖、项目设置以及当前场景。\n\n请确认你已经手动保存场景并完成一次备份或 Git 提交。",
+                    "我已完成备份",
+                    "取消");
+                if (confirmed)
+                {
+                    MarkBackupConfirmed();
+                }
+                return confirmed;
+            }
+
+            while (true)
+            {
+                int option = EditorUtility.DisplayDialogComplex(
+                    "执行前请先备份",
+                    $"执行 {actionName} 会批量修改 manifest、Project Settings 与当前场景。\n\n建议使用 Git 助手创建备份提交，或者确认已完成其他备份手段。",
+                    "我已完成备份",
+                    "取消",
+                    "使用 Git 助手快速备份");
+
+                switch (option)
+                {
+                    case 0:
+                        MarkBackupConfirmed();
+                        return true;
+                    case 1:
+                        return false;
+                    case 2:
+                        if (TryAutoBackupWithGitAssistant(out var message))
+                        {
+                            Log(message);
+                            EditorUtility.DisplayDialog("备份完成", message, "好的");
+                            MarkBackupConfirmed();
+                            return true;
+                        }
+
+                        if (!EditorUtility.DisplayDialog("备份失败", $"{message}\n\n需要重试吗？", "重试", "取消"))
+                        {
+                            return false;
+                        }
+                        break;
+                }
+            }
+        }
+
+        private bool NeedsBackupConfirmation()
+        {
+            if (!_lastBackupConfirmationTimeUtc.HasValue)
+            {
+                return true;
+            }
+
+            var elapsed = DateTime.UtcNow - _lastBackupConfirmationTimeUtc.Value;
+            return elapsed.TotalSeconds > BackupConfirmationValidSeconds;
+        }
+
+        private void MarkBackupConfirmed()
+        {
+            _lastBackupConfirmationTimeUtc = DateTime.UtcNow;
+            CacheBaselineCommitHash();
+        }
+
+        private void CacheBaselineCommitHash()
+        {
+            if (!IsGitAssistantInstalled())
+            {
+                _lastBaselineCommitHash = string.Empty;
+                return;
+            }
+
+            if (TryGetCurrentGitHead(out var hash))
+            {
+                _lastBaselineCommitHash = hash;
+                Log($"已记录当前 Git 提交 {hash}，可在成功后回滚。");
+            }
+            else
+            {
+                _lastBaselineCommitHash = string.Empty;
+                Log("未能记录当前 Git 提交，可能尚未初始化仓库。");
+            }
+        }
+
+        private bool TryGetCurrentGitHead(out string hash)
+        {
+            hash = string.Empty;
+            if (!TryRunGitAssistantCommand("rev-parse HEAD", out var output, out var error))
+            {
+                if (!string.IsNullOrWhiteSpace(error))
+                {
+                    Log($"获取 Git 提交失败：{error}");
+                }
+                return false;
+            }
+
+            hash = output.Trim();
+            return !string.IsNullOrEmpty(hash);
+        }
+
+        private bool TryAutoBackupWithGitAssistant(out string message)
+        {
+            message = string.Empty;
+            if (!IsGitAssistantInstalled())
+            {
+                message = "未检测到 Git 助手。";
+                return false;
+            }
+
+            if (!TryRunGitAssistantCommand("status --porcelain", out var statusOutput, out var statusError))
+            {
+                message = string.IsNullOrWhiteSpace(statusError)
+                    ? "无法读取 Git 状态。"
+                    : statusError;
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(statusOutput))
+            {
+                message = "当前工作区没有改动，视为已备份。";
+                return true;
+            }
+
+            if (!TryRunGitAssistantCommand("add -A", out _, out var addError))
+            {
+                message = string.IsNullOrWhiteSpace(addError)
+                    ? "git add -A 执行失败。"
+                    : addError;
+                return false;
+            }
+
+            var commitMessage = $"备份：VR 转换前 {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            if (!TryRunGitAssistantCommand($"commit -m \"{commitMessage}\"", out var commitOutput, out var commitError))
+            {
+                var combined = $"{commitOutput}\n{commitError}".Trim();
+                if (combined.IndexOf("nothing to commit", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    message = "已经是最新提交，视为已备份。";
+                    return true;
+                }
+
+                message = string.IsNullOrWhiteSpace(combined)
+                    ? "git commit 执行失败。"
+                    : combined;
+                message = $"创建备份提交失败：{message}";
+                return false;
+            }
+
+            message = $"已创建备份提交：{commitMessage}";
+            return true;
+        }
+
+        private bool TryRunGitAssistantCommand(string arguments, out string output, out string error)
+        {
+            output = string.Empty;
+            error = string.Empty;
+
+            var utilityType = FindType("Fire.GitAssistant.GitProcessUtility");
+            if (utilityType == null)
+            {
+                error = "未安装 Git 助手。";
+                return false;
+            }
+
+            MethodInfo runMethod = utilityType.GetMethod(
+                "Run",
+                BindingFlags.Public | BindingFlags.Static,
+                null,
+                new[] { typeof(string), typeof(bool) },
+                null);
+
+            object resultObj;
+            try
+            {
+                if (runMethod != null)
+                {
+                    resultObj = runMethod.Invoke(null, new object[] { arguments, true });
+                }
+                else
+                {
+                    runMethod = utilityType.GetMethod(
+                        "Run",
+                        BindingFlags.Public | BindingFlags.Static,
+                        null,
+                        new[] { typeof(string) },
+                        null);
+                    if (runMethod == null)
+                    {
+                        error = "Git 助手版本过旧，缺少 Run 方法。";
+                        return false;
+                    }
+
+                    resultObj = runMethod.Invoke(null, new object[] { arguments });
+                }
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
+
+            if (resultObj == null)
+            {
+                error = "Git 助手未返回结果。";
+                return false;
+            }
+
+            var resultType = resultObj.GetType();
+            var successProp = resultType.GetProperty("Success");
+            var outputProp = resultType.GetProperty("Output");
+            var errorProp = resultType.GetProperty("Error");
+
+            bool success = successProp != null && (bool)successProp.GetValue(resultObj);
+            output = outputProp?.GetValue(resultObj) as string ?? string.Empty;
+            error = errorProp?.GetValue(resultObj) as string ?? string.Empty;
+
+            return success;
+        }
+
+        private string GetShortHash(string hash)
+        {
+            if (string.IsNullOrEmpty(hash))
+            {
+                return string.Empty;
+            }
+
+            return hash.Length <= 7 ? hash : hash.Substring(0, 7);
         }
 
         #endregion
