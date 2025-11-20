@@ -151,7 +151,7 @@ namespace FireTools.FocusOptimizer
         private static void LogInfo(string msg)
         {
             if (!FocusOptimizerSettings.instance.ShowConsoleHints) return;
-            Debug.Log($"[Focus Optimizer] {msg}");
+            Debug.Log($"[焦点卡顿优化助手] {msg}");
         }
     }
 }
