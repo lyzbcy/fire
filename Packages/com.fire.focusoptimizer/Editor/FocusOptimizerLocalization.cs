@@ -59,6 +59,12 @@ namespace FireTools.FocusOptimizer
                         ["refresh.suspend.tooltip"] = "当 Unity 失去焦点时，自动暂停资源刷新。这样可以避免在外部编辑器中修改代码时触发不必要的刷新。",
                         ["refresh.console"] = "在控制台输出状态提示",
                         ["refresh.console.tooltip"] = "在 Unity 控制台中显示刷新操作的详细信息，方便调试和监控。",
+                        ["refresh.massDetect"] = "监控外部大规模改动",
+                        ["refresh.massDetect.tooltip"] = "在 Unity 失去焦点后监听 Assets/Packages/ProjectSettings 目录的文件变化，用于评估回到前台时的刷新成本。",
+                        ["refresh.massBypass"] = "改动过大时保持暂停",
+                        ["refresh.massBypass.tooltip"] = "当检测到的外部改动数量超过阈值时，不立刻恢复自动刷新，等待你手动确认，避免 Unity 短时间内卡死。",
+                        ["refresh.massThreshold"] = "改动数量阈值",
+                        ["refresh.massThreshold.tooltip"] = "判定“外部改动过大”的阈值。超过该数量时将暂缓自动刷新。建议 100~500。",
                         ["refresh.mode"] = "焦点回归策略",
                         ["refresh.mode.tooltip"] = "选择当 Unity 重新获得焦点时的刷新策略：\n• 立即刷新：立即执行刷新，适合小项目\n• 限流刷新：延迟一段时间后刷新，减少卡顿\n• 手动刷新：不自动刷新，需要手动触发",
                         ["refresh.mode.immediate"] = "立即刷新",
@@ -81,6 +87,8 @@ namespace FireTools.FocusOptimizer
                         ["status.normal"] = "正常",
                         ["status.scheduled"] = "自动刷新状态：{0}，预计 {1:0.0} 秒后刷新。",
                         ["status.current"] = "自动刷新状态：{0}",
+                        ["status.massiveChange"] = "检测到 {0} 个外部改动（阈值 {1}），自动刷新仍被暂停，请手动处理。",
+                        ["status.massiveChangeInfo"] = "最近记录的外部改动数量：{0}",
                         
                         // Enter Play Mode
                         ["playmode.header"] = "Enter Play Mode 优化",
@@ -103,6 +111,8 @@ namespace FireTools.FocusOptimizer
                         ["stats.reason.tooltip"] = "显示触发最近一次刷新的原因，例如：立即刷新、限流刷新、手动刷新等。",
                         ["stats.duration"] = "最近耗时",
                         ["stats.duration.tooltip"] = "显示最近一次资源刷新操作所花费的时间（秒）。数值越小表示性能越好。",
+                        ["stats.massChange"] = "最近外部改动数",
+                        ["stats.massChange.tooltip"] = "Unity 失焦期间检测到的外部文件改动数量，可用来判断刷新成本。",
                         
                         // 设置窗口
                         ["settings.title"] = "设置",
@@ -137,6 +147,12 @@ namespace FireTools.FocusOptimizer
                         ["refresh.suspend.tooltip"] = "Automatically pause asset refresh when Unity loses focus. This prevents unnecessary refreshes while editing code in external editors.",
                         ["refresh.console"] = "Show status hints in Console",
                         ["refresh.console.tooltip"] = "Display detailed refresh operation information in the Unity Console for debugging and monitoring.",
+                        ["refresh.massDetect"] = "Monitor large external changes",
+                        ["refresh.massDetect.tooltip"] = "When Unity loses focus, watch Assets/Packages/ProjectSettings for file changes to estimate the refresh cost once focus returns.",
+                        ["refresh.massBypass"] = "Keep suspended on massive changes",
+                        ["refresh.massBypass.tooltip"] = "If the detected external change count exceeds the threshold, keep auto-refresh suspended and wait for manual confirmation to avoid Unity freezing.",
+                        ["refresh.massThreshold"] = "Change threshold",
+                        ["refresh.massThreshold.tooltip"] = "Number of file changes considered as “massive”. Above this value, auto-refresh will stay suspended. Recommended 100-500.",
                         ["refresh.mode"] = "Focus Return Strategy",
                         ["refresh.mode.tooltip"] = "Choose the refresh strategy when Unity regains focus:\n• Immediate: Refresh immediately, suitable for small projects\n• Throttled: Refresh after a delay to reduce lag\n• Manual: No automatic refresh, requires manual trigger",
                         ["refresh.mode.immediate"] = "Immediate",
@@ -159,6 +175,8 @@ namespace FireTools.FocusOptimizer
                         ["status.normal"] = "Normal",
                         ["status.scheduled"] = "Auto-refresh status: {0}, scheduled in {1:0.0} seconds.",
                         ["status.current"] = "Auto-refresh status: {0}",
+                        ["status.massiveChange"] = "{0} external changes detected (threshold {1}). Auto-refresh remains suspended. Please refresh manually.",
+                        ["status.massiveChangeInfo"] = "Latest external change count: {0}",
                         
                         // Enter Play Mode
                         ["playmode.header"] = "Enter Play Mode Optimization",
@@ -181,6 +199,8 @@ namespace FireTools.FocusOptimizer
                         ["stats.reason.tooltip"] = "Shows the reason that triggered the most recent refresh, such as: immediate refresh, throttled refresh, manual refresh, etc.",
                         ["stats.duration"] = "Last Duration",
                         ["stats.duration.tooltip"] = "Shows the time (in seconds) taken by the most recent asset refresh operation. Lower values indicate better performance.",
+                        ["stats.massChange"] = "External change count",
+                        ["stats.massChange.tooltip"] = "Number of file changes detected while Unity was unfocused. Helps estimate refresh cost.",
                         
                         // Settings Window
                         ["settings.title"] = "Settings",
@@ -215,6 +235,12 @@ namespace FireTools.FocusOptimizer
                         ["refresh.suspend.tooltip"] = "Unity がフォーカスを失ったときに、自動的にアセットリフレッシュを一時停止します。これにより、外部エディターでコードを編集している際の不要なリフレッシュを防ぎます。",
                         ["refresh.console"] = "コンソールにステータスヒントを表示",
                         ["refresh.console.tooltip"] = "デバッグと監視のために、Unity コンソールにリフレッシュ操作の詳細情報を表示します。",
+                        ["refresh.massDetect"] = "大量の外部変更を監視",
+                        ["refresh.massDetect.tooltip"] = "Unity がフォーカスを失っている間に Assets/Packages/ProjectSettings を監視し、復帰時のリフレッシュコストを見積もります。",
+                        ["refresh.massBypass"] = "大きな変更時は停止を維持",
+                        ["refresh.massBypass.tooltip"] = "検出した外部変更数が閾値を超えた場合、自動リフレッシュをすぐに再開せず、手動での確認を待ちます。Unity のフリーズを防ぎます。",
+                        ["refresh.massThreshold"] = "変更数の閾値",
+                        ["refresh.massThreshold.tooltip"] = "「大量変更」と見なすファイル数。超えると自動リフレッシュを保留します。推奨 100～500。",
                         ["refresh.mode"] = "フォーカス復帰戦略",
                         ["refresh.mode.tooltip"] = "Unity がフォーカスを再取得した際のリフレッシュ戦略を選択：\n• 即座：即座にリフレッシュ、小規模プロジェクトに適しています\n• スロットル：遅延後にリフレッシュ、遅延を軽減\n• 手動：自動リフレッシュなし、手動でトリガーが必要",
                         ["refresh.mode.immediate"] = "即座",
@@ -237,6 +263,8 @@ namespace FireTools.FocusOptimizer
                         ["status.normal"] = "正常",
                         ["status.scheduled"] = "自動リフレッシュステータス：{0}、{1:0.0} 秒後に予定。",
                         ["status.current"] = "自動リフレッシュステータス：{0}",
+                        ["status.massiveChange"] = "外部変更 {0} 件を検出（閾値 {1}）。自動リフレッシュは停止したままです。手動で処理してください。",
+                        ["status.massiveChangeInfo"] = "直近で検出した外部変更数：{0}",
                         
                         // Enter Play Mode
                         ["playmode.header"] = "Enter Play Mode 最適化",
@@ -259,6 +287,8 @@ namespace FireTools.FocusOptimizer
                         ["stats.reason.tooltip"] = "最新のリフレッシュをトリガーした理由を表示します。例：即座リフレッシュ、スロットルリフレッシュ、手動リフレッシュなど。",
                         ["stats.duration"] = "最後の所要時間",
                         ["stats.duration.tooltip"] = "最新のアセットリフレッシュ操作にかかった時間（秒）を表示します。値が小さいほどパフォーマンスが良いことを示します。",
+                        ["stats.massChange"] = "外部変更数",
+                        ["stats.massChange.tooltip"] = "Unity がフォーカス外だった間に検出したファイル変更数。リフレッシュコスト推定に役立ちます。",
                         
                         // 設定ウィンドウ
                         ["settings.title"] = "設定",

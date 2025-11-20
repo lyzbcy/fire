@@ -7,6 +7,7 @@ using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace OneClick.VRConverter.Editor
 {
@@ -34,6 +35,8 @@ namespace OneClick.VRConverter.Editor
 
         private const string GeneratedSettingsFolder = "Assets/VRConverterGenerated/XR";
         private const string GeneratedGeneralSettingsAsset = GeneratedSettingsFolder + "/XRGeneralSettings.asset";
+        private const string GeneratedInputActionsFolder = "Assets/VRConverterGenerated/InputActions";
+        private const string DefaultXriInputActionsGuid = "c348712bda248c246b8c49b3db54643f";
 
         private const string OpenXrLoaderTypeName = "UnityEngine.XR.OpenXR.OpenXRLoader";
         private const string XrOriginTypeName = "Unity.XR.CoreUtils.XROrigin";
@@ -54,10 +57,13 @@ namespace OneClick.VRConverter.Editor
         private GUIStyle _stepTitleStyle;
         private GUIStyle _logTextStyle;
 
+        private InputActionAsset _cachedDefaultInputActions;
+        private readonly Dictionary<string, InputActionReference> _actionReferenceCache = new Dictionary<string, InputActionReference>();
+
         private void OnEnable()
         {
-            // 确保窗口在重新编译后样式仍然可用
-            InitStyles();
+            // Unity 恢复布局时 EditorStyles 资源可能尚未就绪，改为延迟初始化
+            EditorApplication.delayCall += Repaint;
         }
 
         [MenuItem(MenuPath)]
@@ -96,6 +102,16 @@ namespace OneClick.VRConverter.Editor
         private void InitStyles()
         {
             if (_headerTitleStyle != null) return;
+
+            // Unity 启动或重新加载布局时，EditorStyles 可能仍未初始化
+            if (EditorStyles.boldLabel == null ||
+                EditorStyles.label == null ||
+                EditorStyles.textArea == null)
+            {
+                // 下一帧再次尝试，避免 NullReferenceException
+                EditorApplication.delayCall += Repaint;
+                return;
+            }
 
             _headerTitleStyle = new GUIStyle(EditorStyles.boldLabel)
             {
@@ -681,26 +697,29 @@ namespace OneClick.VRConverter.Editor
         private void EnsureInteractionManagers()
         {
             TryEnsureSingletonComponent(XrInteractionManagerTypeName, "XR Interaction Manager");
-            TryEnsureSingletonComponent(InputActionManagerTypeName, "XR Input Action Manager");
+            var inputManager = TryEnsureSingletonComponent(InputActionManagerTypeName, "XR Input Action Manager");
+            ConfigureInputActionManager(inputManager);
         }
 
-        private void TryEnsureSingletonComponent(string typeName, string defaultObjectName)
+        private Component TryEnsureSingletonComponent(string typeName, string defaultObjectName)
         {
             var type = FindType(typeName);
             if (type == null)
             {
-                return;
+                return null;
             }
 
-            if (FindComponentInScene(type) != null)
+            var existing = FindComponentInScene(type);
+            if (existing != null)
             {
-                return;
+                return existing;
             }
 
             var go = new GameObject(defaultObjectName);
             Undo.RegisterCreatedObjectUndo(go, $"Create {defaultObjectName}");
-            go.AddComponent(type);
+            var component = go.AddComponent(type);
             Log($"已创建 {defaultObjectName}。");
+            return component;
         }
 
         private void TrySetupActionController(GameObject controllerGo, bool isRightHand = false)
@@ -709,6 +728,7 @@ namespace OneClick.VRConverter.Editor
 
             var controller = TryAddComponent(controllerGo, ActionBasedControllerTypeName);
             TryAddComponent(controllerGo, XrRayInteractorTypeName);
+            ConfigureActionBasedController(controller, isRightHand);
 
             if (controllerGo.GetComponent<LineRenderer>() == null)
             {
@@ -804,6 +824,250 @@ namespace OneClick.VRConverter.Editor
         {
             var obj = UnityEngine.Object.FindObjectOfType(type);
             return obj as Component;
+        }
+
+        #endregion
+
+        #region Input Action helpers
+
+        private struct ControllerActionBinding
+        {
+            public string PropertyName;
+            public string MapName;
+            public string ActionName;
+
+            public ControllerActionBinding(string propertyName, string mapName, string actionName)
+            {
+                PropertyName = propertyName;
+                MapName = mapName;
+                ActionName = actionName;
+            }
+        }
+
+        private static readonly ControllerActionBinding[] LeftControllerBindings =
+        {
+            new ControllerActionBinding("m_PositionAction", "XRI Left", "Position"),
+            new ControllerActionBinding("m_RotationAction", "XRI Left", "Rotation"),
+            new ControllerActionBinding("m_IsTrackedAction", "XRI Left", "Is Tracked"),
+            new ControllerActionBinding("m_TrackingStateAction", "XRI Left", "Tracking State"),
+            new ControllerActionBinding("m_SelectAction", "XRI Left Interaction", "Select"),
+            new ControllerActionBinding("m_SelectActionValue", "XRI Left Interaction", "Select Value"),
+            new ControllerActionBinding("m_ActivateAction", "XRI Left Interaction", "Activate"),
+            new ControllerActionBinding("m_ActivateActionValue", "XRI Left Interaction", "Activate Value"),
+            new ControllerActionBinding("m_UIPressAction", "XRI Left Interaction", "UI Press"),
+            new ControllerActionBinding("m_UIPressActionValue", "XRI Left Interaction", "UI Press Value"),
+            new ControllerActionBinding("m_UIScrollAction", "XRI Left Interaction", "UI Scroll"),
+            new ControllerActionBinding("m_HapticDeviceAction", "XRI Left", "Haptic Device"),
+            new ControllerActionBinding("m_RotateAnchorAction", "XRI Left Interaction", "Rotate Manipulation"),
+            new ControllerActionBinding("m_DirectionalAnchorRotationAction", "XRI Left Interaction", "Directional Manipulation"),
+            new ControllerActionBinding("m_TranslateAnchorAction", "XRI Left Interaction", "Translate Manipulation"),
+            new ControllerActionBinding("m_ScaleToggleAction", "XRI Left Interaction", "Scale Toggle"),
+            new ControllerActionBinding("m_ScaleDeltaAction", "XRI Left Interaction", "Scale Over Time")
+        };
+
+        private static readonly ControllerActionBinding[] RightControllerBindings =
+        {
+            new ControllerActionBinding("m_PositionAction", "XRI Right", "Position"),
+            new ControllerActionBinding("m_RotationAction", "XRI Right", "Rotation"),
+            new ControllerActionBinding("m_IsTrackedAction", "XRI Right", "Is Tracked"),
+            new ControllerActionBinding("m_TrackingStateAction", "XRI Right", "Tracking State"),
+            new ControllerActionBinding("m_SelectAction", "XRI Right Interaction", "Select"),
+            new ControllerActionBinding("m_SelectActionValue", "XRI Right Interaction", "Select Value"),
+            new ControllerActionBinding("m_ActivateAction", "XRI Right Interaction", "Activate"),
+            new ControllerActionBinding("m_ActivateActionValue", "XRI Right Interaction", "Activate Value"),
+            new ControllerActionBinding("m_UIPressAction", "XRI Right Interaction", "UI Press"),
+            new ControllerActionBinding("m_UIPressActionValue", "XRI Right Interaction", "UI Press Value"),
+            new ControllerActionBinding("m_UIScrollAction", "XRI Right Interaction", "UI Scroll"),
+            new ControllerActionBinding("m_HapticDeviceAction", "XRI Right", "Haptic Device"),
+            new ControllerActionBinding("m_RotateAnchorAction", "XRI Right Interaction", "Rotate Manipulation"),
+            new ControllerActionBinding("m_DirectionalAnchorRotationAction", "XRI Right Interaction", "Directional Manipulation"),
+            new ControllerActionBinding("m_TranslateAnchorAction", "XRI Right Interaction", "Translate Manipulation"),
+            new ControllerActionBinding("m_ScaleToggleAction", "XRI Right Interaction", "Scale Toggle"),
+            new ControllerActionBinding("m_ScaleDeltaAction", "XRI Right Interaction", "Scale Over Time")
+        };
+
+        private void ConfigureInputActionManager(Component inputActionManager)
+        {
+            if (inputActionManager == null)
+            {
+                return;
+            }
+
+            var defaultAsset = LoadDefaultXriInputActionsAsset();
+            if (defaultAsset == null)
+            {
+                return;
+            }
+
+            var so = new SerializedObject(inputActionManager);
+            var actionAssetsProp = so.FindProperty("m_ActionAssets");
+            if (actionAssetsProp == null)
+            {
+                return;
+            }
+
+            bool alreadyBound = false;
+            for (int i = 0; i < actionAssetsProp.arraySize; i++)
+            {
+                if (actionAssetsProp.GetArrayElementAtIndex(i).objectReferenceValue == defaultAsset)
+                {
+                    alreadyBound = true;
+                    break;
+                }
+            }
+
+            if (alreadyBound)
+            {
+                return;
+            }
+
+            actionAssetsProp.InsertArrayElementAtIndex(actionAssetsProp.arraySize);
+            actionAssetsProp.GetArrayElementAtIndex(actionAssetsProp.arraySize - 1).objectReferenceValue = defaultAsset;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            Log("已将“XRI Default Input Actions”绑定到 XR Input Action Manager，以自动启用输入映射。");
+        }
+
+        private void ConfigureActionBasedController(Component controller, bool isRightHand)
+        {
+            if (controller == null)
+            {
+                return;
+            }
+
+            var defaultAsset = LoadDefaultXriInputActionsAsset();
+            if (defaultAsset == null)
+            {
+                return;
+            }
+
+            var bindings = isRightHand ? RightControllerBindings : LeftControllerBindings;
+            var so = new SerializedObject(controller);
+            bool hasChanges = false;
+
+            foreach (var binding in bindings)
+            {
+                var cacheKey = $"{(isRightHand ? "Right" : "Left")}_{binding.PropertyName}";
+                if (AssignControllerAction(so, binding.PropertyName, cacheKey, binding.MapName, binding.ActionName))
+                {
+                    hasChanges = true;
+                }
+            }
+
+            if (hasChanges)
+            {
+                so.ApplyModifiedPropertiesWithoutUndo();
+                Log($"已为{(isRightHand ? "右手" : "左手")} Action Based Controller 绑定默认输入动作。");
+            }
+        }
+
+        private bool AssignControllerAction(SerializedObject controllerSo, string propertyName, string cacheKey, string mapName, string actionName)
+        {
+            var property = controllerSo.FindProperty(propertyName);
+            if (property == null)
+            {
+                return false;
+            }
+
+            var reference = GetOrCreateActionReference(cacheKey, mapName, actionName);
+            if (reference == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            var useReferenceProp = property.FindPropertyRelative("m_UseReference");
+            if (useReferenceProp != null && !useReferenceProp.boolValue)
+            {
+                useReferenceProp.boolValue = true;
+                changed = true;
+            }
+
+            var referenceProp = property.FindPropertyRelative("m_Reference");
+            if (referenceProp != null && referenceProp.objectReferenceValue != reference)
+            {
+                referenceProp.objectReferenceValue = reference;
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private InputActionReference GetOrCreateActionReference(string cacheKey, string mapName, string actionName)
+        {
+            if (_actionReferenceCache.TryGetValue(cacheKey, out var cached) && cached != null)
+            {
+                return cached;
+            }
+
+            var asset = LoadDefaultXriInputActionsAsset();
+            if (asset == null)
+            {
+                return null;
+            }
+
+            EnsureDirectoryExists(GeneratedInputActionsFolder);
+            var assetPath = $"{GeneratedInputActionsFolder}/{cacheKey}.asset";
+            var reference = AssetDatabase.LoadAssetAtPath<InputActionReference>(assetPath);
+            if (reference == null)
+            {
+                reference = ScriptableObject.CreateInstance<InputActionReference>();
+                try
+                {
+                    reference.Set(asset, mapName, actionName);
+                }
+                catch (Exception ex)
+                {
+                    Log($"无法创建输入动作引用（{mapName}/{actionName}）：{ex.Message}");
+                    UnityEngine.Object.DestroyImmediate(reference);
+                    return null;
+                }
+
+                reference.name = cacheKey;
+                AssetDatabase.CreateAsset(reference, assetPath);
+                AssetDatabase.SaveAssets();
+                Log($"已生成输入动作引用资产：{assetPath}");
+            }
+
+            _actionReferenceCache[cacheKey] = reference;
+            return reference;
+        }
+
+        private InputActionAsset LoadDefaultXriInputActionsAsset()
+        {
+            if (_cachedDefaultInputActions != null)
+            {
+                return _cachedDefaultInputActions;
+            }
+
+            InputActionAsset asset = null;
+            var guidPath = AssetDatabase.GUIDToAssetPath(DefaultXriInputActionsGuid);
+            if (!string.IsNullOrEmpty(guidPath))
+            {
+                asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(guidPath);
+            }
+
+            if (asset == null)
+            {
+                var guids = AssetDatabase.FindAssets("\"XRI Default Input Actions\" t:InputActionAsset");
+                foreach (var guid in guids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(path);
+                    if (asset != null)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (asset == null)
+            {
+                Log("未在项目中找到“XRI Default Input Actions.inputactions”。请在 Package Manager 中重新导入 XR Interaction Toolkit 的 Starter Assets。");
+                return null;
+            }
+
+            _cachedDefaultInputActions = asset;
+            return _cachedDefaultInputActions;
         }
 
         #endregion

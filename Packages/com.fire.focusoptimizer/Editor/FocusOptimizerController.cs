@@ -78,10 +78,34 @@ namespace FireTools.FocusOptimizer
             AssetDatabase.DisallowAutoRefresh();
             _autoRefreshSuspended = true;
             LogInfo("Unity 失去焦点，暂停自动刷新。");
+
+            FocusChangeTracker.StartTrackingIfEnabled(settings.DetectLargeExternalChanges);
         }
 
         private static void HandleGainFocus(FocusOptimizerSettings settings)
         {
+            int pendingChanges = FocusChangeTracker.StopTrackingAndGetChangeCount();
+            bool detectionEnabled = settings.DetectLargeExternalChanges && settings.SuspendAutoRefreshWhenInactive;
+            if (detectionEnabled)
+            {
+                settings.LastDetectedChangeCount = pendingChanges;
+            }
+            else
+            {
+                settings.LastDetectedChangeCount = 0;
+            }
+
+            if (detectionEnabled &&
+                settings.AutoBypassLargeChange &&
+                pendingChanges >= settings.LargeChangeThreshold)
+            {
+                settings.LastRefreshSkippedDueToLargeChange = true;
+                NotifyLargeChange(pendingChanges);
+                return;
+            }
+
+            settings.LastRefreshSkippedDueToLargeChange = false;
+
             if (!settings.EnableOptimizer)
             {
                 RestoreAutoRefreshIfNeeded();
@@ -136,6 +160,8 @@ namespace FireTools.FocusOptimizer
             settings.LastRefreshDuration = duration;
             settings.LastRefreshReason = string.IsNullOrEmpty(reason) ? "未命名" : reason;
             settings.LastRefreshEditorTime = start;
+            settings.LastRefreshSkippedDueToLargeChange = false;
+            settings.LastDetectedChangeCount = 0;
 
             LogInfo($"执行刷新（{settings.LastRefreshReason}），耗时 {duration:0.000}s。");
         }
@@ -152,6 +178,15 @@ namespace FireTools.FocusOptimizer
         {
             if (!FocusOptimizerSettings.instance.ShowConsoleHints) return;
             Debug.Log($"[焦点卡顿优化助手] {msg}");
+        }
+
+        private static void NotifyLargeChange(int changeCount)
+        {
+            LogInfo($"检测到 {changeCount} 个外部文件改动，已保持自动刷新暂停，等待手动刷新。");
+            if (FocusOptimizerWindow.HasOpenInstances)
+            {
+                FocusOptimizerWindow.NotifyManualRefreshNeeded();
+            }
         }
     }
 }

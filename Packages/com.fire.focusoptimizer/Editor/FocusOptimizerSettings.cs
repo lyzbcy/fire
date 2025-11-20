@@ -20,6 +20,9 @@ namespace FireTools.FocusOptimizer
         [SerializeField] private double _throttleDelaySeconds = 1.5d;
         [SerializeField] private bool _promptOnManualMode = true;
         [SerializeField] private bool _showConsoleHints = true;
+        [SerializeField] private bool _detectLargeExternalChanges = true;
+        [SerializeField] private bool _autoBypassLargeChange = true;
+        [SerializeField] private int _largeChangeThreshold = 200;
 
         [Header("Enter Play Mode 配置")]
         [SerializeField] private bool _enableEnterPlayModeHelper = false;
@@ -32,6 +35,8 @@ namespace FireTools.FocusOptimizer
         [SerializeField] private double _lastRefreshDuration;
         [SerializeField] private string _lastRefreshReason = "初始";
         [SerializeField] private double _lastRefreshEditorTime;
+        [SerializeField] private int _lastDetectedChangeCount;
+        [SerializeField] private bool _lastRefreshSkippedDueToLargeChange;
 
         internal bool EnableOptimizer
         {
@@ -67,6 +72,24 @@ namespace FireTools.FocusOptimizer
         {
             get => _showConsoleHints;
             set => SetValue(ref _showConsoleHints, value);
+        }
+
+        internal bool DetectLargeExternalChanges
+        {
+            get => _detectLargeExternalChanges;
+            set => SetValue(ref _detectLargeExternalChanges, value);
+        }
+
+        internal bool AutoBypassLargeChange
+        {
+            get => _autoBypassLargeChange;
+            set => SetValue(ref _autoBypassLargeChange, value);
+        }
+
+        internal int LargeChangeThreshold
+        {
+            get => _largeChangeThreshold;
+            set => SetValue(ref _largeChangeThreshold, Mathf.Clamp(value, 10, 5000));
         }
 
         internal bool EnableEnterPlayModeHelper
@@ -109,6 +132,18 @@ namespace FireTools.FocusOptimizer
         {
             get => _lastRefreshEditorTime;
             set => SetValue(ref _lastRefreshEditorTime, value);
+        }
+
+        internal int LastDetectedChangeCount
+        {
+            get => _lastDetectedChangeCount;
+            set => SetValue(ref _lastDetectedChangeCount, value);
+        }
+
+        internal bool LastRefreshSkippedDueToLargeChange
+        {
+            get => _lastRefreshSkippedDueToLargeChange;
+            set => SetValue(ref _lastRefreshSkippedDueToLargeChange, value);
         }
 
         internal void SaveSettings()
