@@ -48,6 +48,18 @@ namespace OneClick.VRConverter.Editor
         private readonly List<AddRequest> _pendingAddRequests = new List<AddRequest>();
         private bool _isMonitoringAddRequests;
 
+        // UI 样式
+        private GUIStyle _headerTitleStyle;
+        private GUIStyle _headerSubTitleStyle;
+        private GUIStyle _stepTitleStyle;
+        private GUIStyle _logTextStyle;
+
+        private void OnEnable()
+        {
+            // 确保窗口在重新编译后样式仍然可用
+            InitStyles();
+        }
+
         [MenuItem(MenuPath)]
         public static void OpenWindow()
         {
@@ -58,50 +70,210 @@ namespace OneClick.VRConverter.Editor
 
         private void OnGUI()
         {
-            EditorGUILayout.LabelField("一键 VR 转换", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox(
-                "此工具会尝试：\n" +
-                "1. 在 manifest.json 中确保 XR Management / OpenXR / XR Interaction Toolkit。\n" +
-                "2. 自动配置 XR Plug-in Management：为 Standalone/Android 启用 OpenXR Loader。\n" +
-                "3. 在当前场景中创建 XR Interaction Toolkit 的 XR Origin（若包已导入），否则回退到通用 VR Rig。\n\n" +
-                "提示：首次添加 XR 包后 Unity 需要重新导入，等编译完成后再次点击“配置 + 场景转换”即可。",
-                MessageType.Info);
+            InitStyles();
 
-            EditorGUILayout.Space();
+            DrawHeader();
+            EditorGUILayout.Space(6);
 
-            if (GUILayout.Button("一键执行所有步骤（推荐）"))
-            {
-                RunAllSteps();
-            }
+            DrawQuickActions();
+            EditorGUILayout.Space(8);
 
-            EditorGUILayout.Space();
+            DrawStepCards();
+            EditorGUILayout.Space(8);
 
-            if (GUILayout.Button("第1步：只检查并添加 XR 依赖包"))
-            {
-                EnsureXrPackages();
-            }
-
-            using (new EditorGUI.DisabledScope(EditorApplication.isCompiling))
-            {
-                if (GUILayout.Button("第2步：配置 XR 设置 + 创建/更新场景 VR Rig"))
-                {
-                    ConfigureXrProjectSettings();
-                    ConvertCurrentSceneToVr();
-                }
-            }
-
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("执行日志：", EditorStyles.boldLabel);
-
-            _scroll = EditorGUILayout.BeginScrollView(_scroll, GUILayout.ExpandHeight(true));
-            EditorGUILayout.TextArea(_log, GUILayout.ExpandHeight(true));
-            EditorGUILayout.EndScrollView();
+            DrawLogArea();
         }
 
         private void Log(string msg)
         {
             _log += $"[{System.DateTime.Now:HH:mm:ss}] {msg}\n";
             Repaint();
+        }
+
+        /// <summary>
+        /// 初始化窗口内使用到的 GUIStyle，保证整体更有设计感。
+        /// </summary>
+        private void InitStyles()
+        {
+            if (_headerTitleStyle != null) return;
+
+            _headerTitleStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 16,
+                alignment = TextAnchor.MiddleLeft
+            };
+
+            _headerSubTitleStyle = new GUIStyle(EditorStyles.label)
+            {
+                wordWrap = true,
+                fontSize = 11,
+                normal = { textColor = new Color(0.75f, 0.75f, 0.75f) }
+            };
+
+            _stepTitleStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 12
+            };
+
+            _logTextStyle = new GUIStyle(EditorStyles.textArea)
+            {
+                wordWrap = true
+            };
+        }
+
+        /// <summary>
+        /// 顶部头部区域：标题 + 简短说明 + 状态提示。
+        /// </summary>
+        private void DrawHeader()
+        {
+            EditorGUILayout.BeginVertical("HelpBox");
+            {
+                EditorGUILayout.Space(4);
+                EditorGUILayout.LabelField("一键 VR 项目转换", _headerTitleStyle);
+                EditorGUILayout.Space(2);
+
+                EditorGUILayout.LabelField(
+                    "面向新手的引导式工具：帮助你将当前项目快速配置为基础 VR 项目，" +
+                    "自动处理 XR 包依赖、XR Plug-in Management 配置以及场景中的 XR Rig。",
+                    _headerSubTitleStyle);
+
+                EditorGUILayout.Space(4);
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    var compiling = EditorApplication.isCompiling;
+                    var icon = EditorGUIUtility.IconContent(compiling ? "console.warnicon" : "TestPassed");
+                    var msg = compiling
+                        ? "Unity 正在导入或编译脚本，请等待完成后再执行“第 2 步”或“一键执行”操作。"
+                        : "当前状态良好，可以直接执行“一键执行所有步骤（推荐）”。";
+
+                    EditorGUILayout.LabelField(icon, GUILayout.Width(20), GUILayout.Height(20));
+                    EditorGUILayout.LabelField(msg, EditorStyles.wordWrappedMiniLabel);
+                }
+                EditorGUILayout.Space(2);
+            }
+            EditorGUILayout.EndVertical();
+        }
+
+        /// <summary>
+        /// 快捷操作区域：一键执行主按钮。
+        /// </summary>
+        private void DrawQuickActions()
+        {
+            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.LabelField("快速开始（推荐）", _stepTitleStyle);
+            EditorGUILayout.Space(2);
+
+            EditorGUILayout.LabelField(
+                "适合第一次接触 VR 项目的同学：点击一次即可按顺序执行所有必要步骤。" +
+                "如果中途需要重新导入包，可以稍后再单独执行“第 2 步”。",
+                EditorStyles.wordWrappedMiniLabel);
+
+            EditorGUILayout.Space(4);
+
+            var content = new GUIContent(
+                "一键执行所有步骤（推荐）",
+                "依次执行：\n" +
+                "1. 检查并安装 XR Management / OpenXR / XR Interaction Toolkit；\n" +
+                "2. 自动配置 XR Plug-in Management（Standalone + Android 启用 OpenXR）；\n" +
+                "3. 将当前场景转换为 VR 场景并创建/更新 XR Rig。");
+
+            if (GUILayout.Button(content, GUILayout.Height(28)))
+            {
+                RunAllSteps();
+            }
+
+            EditorGUILayout.Space(2);
+            EditorGUILayout.LabelField("如果你不熟悉 XR 配置，推荐优先使用上面的“一键执行”按钮。", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.EndVertical();
+        }
+
+        /// <summary>
+        /// 分步操作卡片：第 1 步（包依赖）+ 第 2 步（配置 & 场景）。
+        /// </summary>
+        private void DrawStepCards()
+        {
+            EditorGUILayout.BeginHorizontal();
+
+            // 第 1 步：XR 包依赖
+            EditorGUILayout.BeginVertical("Box");
+            EditorGUILayout.LabelField("第 1 步：准备 XR 依赖包", _stepTitleStyle);
+            EditorGUILayout.Space(2);
+            EditorGUILayout.LabelField(
+                "在 Packages/manifest.json 中检查并安装如下 XR 相关包：\n" +
+                "- XR Management\n- OpenXR\n- XR Interaction Toolkit\n\n" +
+                "适合刚将普通项目升级为 VR 项目时使用。",
+                EditorStyles.wordWrappedMiniLabel);
+
+            EditorGUILayout.Space(4);
+
+            var btnStep1 = new GUIContent(
+                "执行第 1 步",
+                "仅执行 XR 依赖检查和安装，不会修改 XR 设置或场景。" +
+                "\n建议在看到 Unity 编译完成后再继续执行第 2 步。");
+            if (GUILayout.Button(btnStep1, GUILayout.Height(24)))
+            {
+                EnsureXrPackages();
+            }
+
+            EditorGUILayout.EndVertical();
+
+            GUILayout.Space(6);
+
+            // 第 2 步：XR 设置 + 场景转换
+            EditorGUILayout.BeginVertical("Box");
+            EditorGUILayout.LabelField("第 2 步：配置项目 & 场景", _stepTitleStyle);
+            EditorGUILayout.Space(2);
+            EditorGUILayout.LabelField(
+                "为 Standalone / Android 自动启用 OpenXR Loader，" +
+                "并在当前场景内创建或更新 XR Origin（如可用）或基础 VRRig。\n\n" +
+                "若你已经手动导入好 XR 包，可直接从第 2 步开始。",
+                EditorStyles.wordWrappedMiniLabel);
+
+            EditorGUILayout.Space(4);
+
+            using (new EditorGUI.DisabledScope(EditorApplication.isCompiling))
+            {
+                var btnStep2 = new GUIContent(
+                    "执行第 2 步",
+                    EditorApplication.isCompiling
+                        ? "当前 Unity 正在编译，暂不可执行。请等待编译完成后再点击。"
+                        : "配置 XRGeneralSettings / XRManagerSettings，并在当前场景中创建或更新 VR Rig。");
+
+                if (GUILayout.Button(btnStep2, GUILayout.Height(24)))
+                {
+                    ConfigureXrProjectSettings();
+                    ConvertCurrentSceneToVr();
+                }
+            }
+
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// 日志区域：滚动文本 + 简短说明，方便新手理解每一步发生了什么。
+        /// </summary>
+        private void DrawLogArea()
+        {
+            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.LabelField("执行日志（可帮助排查问题）", _stepTitleStyle);
+            EditorGUILayout.Space(2);
+            EditorGUILayout.LabelField(
+                "这里会实时显示每一步执行情况，例如：\n" +
+                "- 是否成功安装 XR 相关包；\n" +
+                "- 是否成功启用 OpenXR Loader；\n" +
+                "- 场景中是否成功创建 XR Origin / VRRig 等。\n" +
+                "当你遇到问题时，可以先查看此处日志再处理。",
+                EditorStyles.wordWrappedMiniLabel);
+
+            EditorGUILayout.Space(4);
+
+            _scroll = EditorGUILayout.BeginScrollView(_scroll, GUILayout.ExpandHeight(true));
+            EditorGUILayout.TextArea(_log, _logTextStyle, GUILayout.ExpandHeight(true));
+            EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
         }
 
         private void RunAllSteps()
