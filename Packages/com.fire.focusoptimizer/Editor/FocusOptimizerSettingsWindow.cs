@@ -5,7 +5,7 @@ namespace FireTools.FocusOptimizer
 {
     internal sealed class FocusOptimizerSettingsWindow : EditorWindow
     {
-        [MenuItem("Tools/焦点卡顿优化助手/设置", priority = 202)]
+        [MenuItem("Tools/焦点卡顿优化助手/设置", priority = 204)]
         private static void OpenWindow()
         {
             var window = GetWindow<FocusOptimizerSettingsWindow>();

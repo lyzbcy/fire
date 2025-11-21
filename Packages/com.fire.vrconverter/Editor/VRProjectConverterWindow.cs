@@ -91,6 +91,21 @@ namespace OneClick.VRConverter.Editor
         private Vector2 _windowScroll;
         private Vector2 _logScroll;
         private const string GitAssistantMenuPath = "Tools/Version Control Assistant";
+        private const string GitAssistantAssetStoreUrl = "https://assetstore.unity.com/packages/slug/345864";
+        private static readonly string[] GitAssistantWindowTypeNames =
+        {
+            // 旧版命名空间
+            "Fire.VersionControlAssistant.VersionControlAssistantWindow",
+            // 兼容最新 GitAssistant（类型名变为 GitAssistantWindow）
+            "Fire.GitAssistant.GitAssistantWindow",
+            // 历史版本可能仍沿用 VersionControlAssistantWindow 命名
+            "Fire.GitAssistant.VersionControlAssistantWindow"
+        };
+        private static readonly string[] GitAssistantUtilityTypeNames =
+        {
+            "Fire.VersionControlAssistant.GitProcessUtility",
+            "Fire.GitAssistant.GitProcessUtility"
+        };
         private const double BackupConfirmationValidSeconds = 300d;
 
         private string _log = "";
@@ -316,6 +331,10 @@ namespace OneClick.VRConverter.Editor
             EditorGUILayout.LabelField("项目体检 & 兼容性建议", _stepTitleStyle);
             EditorGUILayout.Space(2);
 
+            Action gitAssistantAction = diagnostics.HasGitAssistant
+                ? null
+                : () => Application.OpenURL(GitAssistantAssetStoreUrl);
+
             var rows = new[]
             {
                 new DiagnosticRow("渲染管线", diagnostics.RenderPipelineLabel, true, diagnostics.RenderPipelineHint),
@@ -334,7 +353,8 @@ namespace OneClick.VRConverter.Editor
                         ? "进入 Play 模式后自动实例化 XR Device Simulator。"
                         : "将在傻瓜式模式下一键配置，或在专业模式中勾选“配置 VR 模拟设备”。"),
                 new DiagnosticRow("版本控制助手", diagnostics.HasGitAssistant ? "已安装" : "未安装", diagnostics.HasGitAssistant,
-                    diagnostics.HasGitAssistant ? "可直接使用快速备份 / 回滚。" : "建议先导入 com.fire.gitassistant，以提升备份体验。")
+                    diagnostics.HasGitAssistant ? "可直接使用快速备份 / 回滚。" : "建议先导入 com.fire.gitassistant，以提升备份体验。",
+                    gitAssistantAction)
             };
 
             int columns = position.width >= WideLayoutThreshold ? 2 : 1;
@@ -347,7 +367,7 @@ namespace OneClick.VRConverter.Editor
                     if (index >= rows.Length)
                         break;
 
-                    DrawDiagnosticRow(rows[index].Title, rows[index].Value, rows[index].Positive, rows[index].Hint);
+                    DrawDiagnosticRow(rows[index].Title, rows[index].Value, rows[index].Positive, rows[index].Hint, rows[index].OnClick);
                     if (columns > 1 && col == 0)
                     {
                         GUILayout.Space(6);
@@ -365,17 +385,19 @@ namespace OneClick.VRConverter.Editor
             public readonly string Value;
             public readonly bool Positive;
             public readonly string Hint;
+            public readonly Action OnClick;
 
-            public DiagnosticRow(string title, string value, bool positive, string hint)
+            public DiagnosticRow(string title, string value, bool positive, string hint, Action onClick = null)
             {
                 Title = title;
                 Value = value;
                 Positive = positive;
                 Hint = hint;
+                OnClick = onClick;
             }
         }
 
-        private void DrawDiagnosticRow(string title, string value, bool positive, string hint)
+        private void DrawDiagnosticRow(string title, string value, bool positive, string hint, Action onClick)
         {
             using (new EditorGUILayout.VerticalScope("box"))
             {
@@ -389,6 +411,19 @@ namespace OneClick.VRConverter.Editor
                 }
 
                 EditorGUILayout.LabelField(hint, EditorStyles.wordWrappedMiniLabel);
+            }
+
+            if (onClick != null)
+            {
+                var rowRect = GUILayoutUtility.GetLastRect();
+                EditorGUIUtility.AddCursorRect(rowRect, MouseCursor.Link);
+                var currentEvent = Event.current;
+                if (currentEvent.type == EventType.MouseUp && currentEvent.button == 0 &&
+                    rowRect.Contains(currentEvent.mousePosition))
+                {
+                    onClick.Invoke();
+                    currentEvent.Use();
+                }
             }
         }
 
@@ -2058,8 +2093,7 @@ namespace OneClick.VRConverter.Editor
 
         private bool IsGitAssistantInstalled()
         {
-            return FindType("Fire.VersionControlAssistant.VersionControlAssistantWindow") != null &&
-                   FindType("Fire.VersionControlAssistant.GitProcessUtility") != null;
+            return GetGitAssistantWindowType() != null && GetGitAssistantUtilityType() != null;
         }
 
         private bool OpenGitAssistantWindow()
@@ -2295,7 +2329,7 @@ namespace OneClick.VRConverter.Editor
             output = string.Empty;
             error = string.Empty;
 
-            var utilityType = FindType("Fire.VersionControlAssistant.GitProcessUtility");
+            var utilityType = GetGitAssistantUtilityType();
             if (utilityType == null)
             {
                 error = "未安装版本控制助手。";
@@ -2489,6 +2523,35 @@ namespace OneClick.VRConverter.Editor
                 Directory.CreateDirectory(full);
                 AssetDatabase.Refresh();
             }
+        }
+
+        private static Type GetGitAssistantWindowType()
+        {
+            return FindFirstType(GitAssistantWindowTypeNames);
+        }
+
+        private static Type GetGitAssistantUtilityType()
+        {
+            return FindFirstType(GitAssistantUtilityTypeNames);
+        }
+
+        private static Type FindFirstType(IEnumerable<string> typeNames)
+        {
+            if (typeNames == null)
+            {
+                return null;
+            }
+
+            foreach (var fullName in typeNames)
+            {
+                var type = FindType(fullName);
+                if (type != null)
+                {
+                    return type;
+                }
+            }
+
+            return null;
         }
 
         private class ProjectDiagnostics

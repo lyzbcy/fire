@@ -10,7 +10,7 @@ namespace FireTools.FocusOptimizer
 
         internal static bool HasOpenInstances => _openCount > 0;
 
-        [MenuItem("Tools/焦点卡顿优化助手", priority = 201)]
+        [MenuItem("Tools/焦点卡顿优化助手/主窗口", priority = 201)]
         private static void OpenWindow()
         {
             var window = GetWindow<FocusOptimizerWindow>();

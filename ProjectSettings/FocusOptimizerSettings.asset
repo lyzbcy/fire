@@ -21,13 +21,14 @@ MonoBehaviour:
   _detectLargeExternalChanges: 1
   _autoBypassLargeChange: 1
   _largeChangeThreshold: 200
+  _enableExperimentalBackgroundImport: 0
   _enableEnterPlayModeHelper: 1
   _applyEnterPlayModePreset: 0
   _enterPlayModeOptions: 3
   _autoRestoreEnterPlayMode: 1
-  _lastRefreshDuration: 0.008127200000004109
-  _lastRefreshReason: "\u9650\u6D41\u5237\u65B0"
-  _lastRefreshEditorTime: 94.2604162
+  _lastRefreshDuration: 0.011231600000002118
+  _lastRefreshReason: "\u5FEB\u901F\u5237\u65B0"
+  _lastRefreshEditorTime: 92.2633824
   _lastDetectedChangeCount: 0
   _lastRefreshSkippedDueToLargeChange: 0
   _hasCompletedOnboarding: 1
