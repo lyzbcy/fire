@@ -25,8 +25,9 @@ MonoBehaviour:
   _applyEnterPlayModePreset: 0
   _enterPlayModeOptions: 3
   _autoRestoreEnterPlayMode: 1
-  _lastRefreshDuration: 0.009412799999999777
+  _lastRefreshDuration: 0.008127200000004109
   _lastRefreshReason: "\u9650\u6D41\u5237\u65B0"
-  _lastRefreshEditorTime: 55.183580600000006
+  _lastRefreshEditorTime: 94.2604162
   _lastDetectedChangeCount: 0
   _lastRefreshSkippedDueToLargeChange: 0
+  _hasCompletedOnboarding: 1

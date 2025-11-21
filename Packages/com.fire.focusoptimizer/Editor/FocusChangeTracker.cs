@@ -157,6 +157,45 @@ namespace FireTools.FocusOptimizer
             Debug.LogWarning($"[焦点卡顿优化助手] 文件监控缓冲区溢出或错误：{e.GetException()?.Message}");
         }
 
+        internal static int TryConsumeChanges(List<string> buffer, int maxCount)
+        {
+            if (buffer == null || maxCount <= 0)
+            {
+                return 0;
+            }
+
+            lock (Locker)
+            {
+                if (ChangedPaths.Count == 0)
+                {
+                    return 0;
+                }
+
+                int taken = 0;
+                using var enumerator = ChangedPaths.GetEnumerator();
+                var toRemove = new List<string>(Math.Min(maxCount, ChangedPaths.Count));
+                while (taken < maxCount && enumerator.MoveNext())
+                {
+                    string path = enumerator.Current;
+                    if (string.IsNullOrEmpty(path))
+                    {
+                        continue;
+                    }
+
+                    buffer.Add(path);
+                    toRemove.Add(path);
+                    taken++;
+                }
+
+                foreach (var path in toRemove)
+                {
+                    ChangedPaths.Remove(path);
+                }
+
+                return taken;
+            }
+        }
+
         private static void DisposeWatchers()
         {
             StopTracking();
@@ -171,6 +210,9 @@ namespace FireTools.FocusOptimizer
         }
     }
 }
+
+
+
 
 
 

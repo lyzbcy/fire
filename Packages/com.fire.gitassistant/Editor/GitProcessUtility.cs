@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 
-namespace Fire.GitAssistant
+namespace Fire.VersionControlAssistant
 {
     internal static class GitProcessUtility
     {

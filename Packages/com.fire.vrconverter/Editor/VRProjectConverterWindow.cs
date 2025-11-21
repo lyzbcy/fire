@@ -90,7 +90,7 @@ namespace OneClick.VRConverter.Editor
         private static readonly Dictionary<string, Type> _typeCache = new Dictionary<string, Type>();
         private Vector2 _windowScroll;
         private Vector2 _logScroll;
-        private const string GitAssistantMenuPath = "Tools/Git 助手";
+        private const string GitAssistantMenuPath = "Tools/Version Control Assistant";
         private const double BackupConfirmationValidSeconds = 300d;
 
         private string _log = "";
@@ -333,7 +333,7 @@ namespace OneClick.VRConverter.Editor
                     diagnostics.HasVrSimulator
                         ? "进入 Play 模式后自动实例化 XR Device Simulator。"
                         : "将在傻瓜式模式下一键配置，或在专业模式中勾选“配置 VR 模拟设备”。"),
-                new DiagnosticRow("Git 助手", diagnostics.HasGitAssistant ? "已安装" : "未安装", diagnostics.HasGitAssistant,
+                new DiagnosticRow("版本控制助手", diagnostics.HasGitAssistant ? "已安装" : "未安装", diagnostics.HasGitAssistant,
                     diagnostics.HasGitAssistant ? "可直接使用快速备份 / 回滚。" : "建议先导入 com.fire.gitassistant，以提升备份体验。")
             };
 
@@ -636,13 +636,13 @@ namespace OneClick.VRConverter.Editor
         private void DrawGitAssistantSupportCard()
         {
             EditorGUILayout.BeginVertical("HelpBox");
-            EditorGUILayout.LabelField("Git 助手联动（备份 & 回滚）", _stepTitleStyle);
+            EditorGUILayout.LabelField("版本控制助手联动（备份 & 回滚）", _stepTitleStyle);
             EditorGUILayout.Space(2);
 
             var gitAvailable = IsGitAssistantInstalled();
             var description = gitAvailable
-                ? "检测到已安装 Git 助手：执行 VR 转换前请完成一次提交/标签备份，转换成功后可利用下方按钮快速回滚。"
-                : "尚未检测到 Git 助手。建议先在 Package Manager 中导入 com.fire.gitassistant，以便执行自动备份与回滚。";
+                ? "检测到已安装版本控制助手：执行 VR 转换前请完成一次提交/标签备份，转换成功后可利用下方按钮快速回滚。"
+                : "尚未检测到版本控制助手。建议先在 Package Manager 中导入 com.fire.gitassistant，以便执行自动备份与回滚。";
             EditorGUILayout.LabelField(description, EditorStyles.wordWrappedMiniLabel);
 
             EditorGUILayout.Space(4);
@@ -650,15 +650,15 @@ namespace OneClick.VRConverter.Editor
             {
                 using (new EditorGUI.DisabledScope(!gitAvailable))
                 {
-                    if (GUILayout.Button("打开 Git 助手", GUILayout.Height(24)))
+                    if (GUILayout.Button("打开版本控制助手", GUILayout.Height(24)))
                     {
                         if (!OpenGitAssistantWindow())
                         {
-                            EditorUtility.DisplayDialog("提示", "未能打开 Git 助手，请确认已正确安装。", "好的");
+                            EditorUtility.DisplayDialog("提示", "未能打开版本控制助手，请确认已正确安装。", "好的");
                         }
                     }
 
-                    if (GUILayout.Button("使用 Git 助手快速备份", GUILayout.Height(24)))
+                    if (GUILayout.Button("使用版本控制助手快速备份", GUILayout.Height(24)))
                     {
                         TriggerQuickBackupFlow();
                     }
@@ -687,7 +687,7 @@ namespace OneClick.VRConverter.Editor
 
             if (!gitAvailable)
             {
-                EditorGUILayout.HelpBox("安装 Git 助手后，可在此窗口中获得自动备份与回滚按钮。", MessageType.Info);
+                EditorGUILayout.HelpBox("安装版本控制助手后，可在此窗口中获得自动备份与回滚按钮。", MessageType.Info);
             }
 
             EditorGUILayout.EndVertical();
@@ -2054,12 +2054,12 @@ namespace OneClick.VRConverter.Editor
 
         #endregion
 
-        #region Git 助手集成
+        #region 版本控制助手集成
 
         private bool IsGitAssistantInstalled()
         {
-            return FindType("Fire.GitAssistant.GitAssistantWindow") != null &&
-                   FindType("Fire.GitAssistant.GitProcessUtility") != null;
+            return FindType("Fire.VersionControlAssistant.VersionControlAssistantWindow") != null &&
+                   FindType("Fire.VersionControlAssistant.GitProcessUtility") != null;
         }
 
         private bool OpenGitAssistantWindow()
@@ -2076,7 +2076,7 @@ namespace OneClick.VRConverter.Editor
         {
             if (!IsGitAssistantInstalled())
             {
-                EditorUtility.DisplayDialog("提示", "当前项目未安装 Git 助手，无法执行快速备份。", "好的");
+                EditorUtility.DisplayDialog("提示", "当前项目未安装版本控制助手，无法执行快速备份。", "好的");
                 return;
             }
 
@@ -2096,7 +2096,7 @@ namespace OneClick.VRConverter.Editor
         {
             if (!IsGitAssistantInstalled())
             {
-                EditorUtility.DisplayDialog("无法回滚", "请先安装 Git 助手后再尝试回滚。", "好的");
+                EditorUtility.DisplayDialog("无法回滚", "请先安装版本控制助手后再尝试回滚。", "好的");
                 return;
             }
 
@@ -2155,10 +2155,10 @@ namespace OneClick.VRConverter.Editor
             {
                 int option = EditorUtility.DisplayDialogComplex(
                     "执行前请先备份",
-                    $"执行 {actionName} 会批量修改 manifest、Project Settings 与当前场景。\n\n建议使用 Git 助手创建备份提交，或者确认已完成其他备份手段。",
+                    $"执行 {actionName} 会批量修改 manifest、Project Settings 与当前场景。\n\n建议使用版本控制助手创建备份提交，或者确认已完成其他备份手段。",
                     "我已完成备份",
                     "取消",
-                    "使用 Git 助手快速备份");
+                    "使用版本控制助手快速备份");
 
                 switch (option)
                 {
@@ -2243,7 +2243,7 @@ namespace OneClick.VRConverter.Editor
             message = string.Empty;
             if (!IsGitAssistantInstalled())
             {
-                message = "未检测到 Git 助手。";
+                message = "未检测到版本控制助手。";
                 return false;
             }
 
@@ -2295,10 +2295,10 @@ namespace OneClick.VRConverter.Editor
             output = string.Empty;
             error = string.Empty;
 
-            var utilityType = FindType("Fire.GitAssistant.GitProcessUtility");
+            var utilityType = FindType("Fire.VersionControlAssistant.GitProcessUtility");
             if (utilityType == null)
             {
-                error = "未安装 Git 助手。";
+                error = "未安装版本控制助手。";
                 return false;
             }
 
@@ -2326,7 +2326,7 @@ namespace OneClick.VRConverter.Editor
                         null);
                     if (runMethod == null)
                     {
-                        error = "Git 助手版本过旧，缺少 Run 方法。";
+                        error = "版本控制助手版本过旧，缺少 Run 方法。";
                         return false;
                     }
 
@@ -2341,7 +2341,7 @@ namespace OneClick.VRConverter.Editor
 
             if (resultObj == null)
             {
-                error = "Git 助手未返回结果。";
+                error = "版本控制助手未返回结果。";
                 return false;
             }
 

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 
-namespace Fire.GitAssistant
+namespace Fire.VersionControlAssistant
 {
     internal enum GitLanguage
     {
@@ -25,7 +25,7 @@ namespace Fire.GitAssistant
 
     internal static class GitLocalization
     {
-        private const string PrefKey = "GitAssistant.Language";
+        private const string PrefKey = "VersionControlAssistant.Language";
         private static readonly GitLanguage DefaultLanguage = GitLanguage.ChineseSimplified;
 
         private static readonly LanguageInfo[] LanguageInfos =
@@ -201,7 +201,7 @@ namespace Fire.GitAssistant
                 {
                     GitLanguage.Japanese, new Dictionary<string, string>
                     {
-                        ["window.title"] = "Git アシスタント",
+                        ["window.title"] = "バージョンコントロールアシスタント",
                         ["toolbar.refresh"] = "再読み込み",
                         ["toolbar.stageAll"] = "すべてステージ",
                         ["toolbar.pull"] = "プル",

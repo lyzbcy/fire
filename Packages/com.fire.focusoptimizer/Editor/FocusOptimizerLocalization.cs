@@ -49,6 +49,26 @@ namespace FireTools.FocusOptimizer
                         ["toolbar.help.tooltip"] = "打开帮助文档页面",
                         ["toolbar.settings"] = "设置",
                         ["toolbar.settings.tooltip"] = "打开设置窗口，调整语言和偏好选项",
+                        ["toolbar.action.refresh"] = "快速刷新",
+                        ["toolbar.action.refresh.tooltip"] = "无论当前策略如何，立即刷新资源。",
+                        ["toolbar.action.restore"] = "恢复自动刷新",
+                        ["toolbar.action.restore.tooltip"] = "当自动刷新被暂停时，立刻恢复 Unity 的自动刷新。",
+                        // 首次引导
+                        ["onboarding.header"] = "首次使用推荐配置",
+                        ["onboarding.header.tooltip"] = "基于多数中大型项目的经验预设，帮助你在第一次使用时快速稳定地体验插件。",
+                        ["onboarding.description"] = "建议先使用下方推荐配置：限流刷新 + 重点监控大改动 + 控制台提示，可以显著降低切回 Unity 时的卡顿风险。",
+                        ["onboarding.recommendation"] = "点击“一键应用推荐配置”后，你可以随时再微调细节，本提示只会出现一次。",
+                        ["onboarding.button.apply"] = "一键应用推荐配置",
+                        ["onboarding.button.dismiss"] = "以后不再显示",
+
+                        // 菜单与对话
+                        ["menu.refresh.reason"] = "菜单触发刷新",
+                        ["dialog.massChange.title"] = "检测到大量外部改动",
+                        ["dialog.massChange.content"] = "共检测到 {0} 个外部改动。若此时立刻刷新，Unity 可能会卡顿甚至假死。你希望如何处理？",
+                        ["dialog.massChange.refresh"] = "立即刷新",
+                        ["dialog.massChange.keep"] = "保持暂停",
+                        ["dialog.massChange.restore"] = "仅恢复自动刷新",
+                        ["dialog.massChange.refreshReason"] = "大量改动后立即刷新",
                         
                         // 刷新策略
                         ["refresh.header"] = "刷新策略",
@@ -65,6 +85,8 @@ namespace FireTools.FocusOptimizer
                         ["refresh.massBypass.tooltip"] = "当检测到的外部改动数量超过阈值时，不立刻恢复自动刷新，等待你手动确认，避免 Unity 短时间内卡死。",
                         ["refresh.massThreshold"] = "改动数量阈值",
                         ["refresh.massThreshold.tooltip"] = "判定“外部改动过大”的阈值。超过该数量时将暂缓自动刷新。建议 100~500。",
+                        ["refresh.experimentalBackgroundImport"] = "实验性：失焦时后台导入改动",
+                        ["refresh.experimentalBackgroundImport.tooltip"] = "Unity 失焦期间尝试在后台增量导入已修改的资产，以便回到前台时无需等待全量刷新。风险：导入脚本仍会触发重新编译/域重载，文件未写完时可能导入失败，且大资源照样会占满 IO，请仅在可接受额外卡顿的项目中开启。",
                         ["refresh.mode"] = "焦点回归策略",
                         ["refresh.mode.tooltip"] = "选择当 Unity 重新获得焦点时的刷新策略：\n• 立即刷新：立即执行刷新，适合小项目\n• 限流刷新：延迟一段时间后刷新，减少卡顿\n• 手动刷新：不自动刷新，需要手动触发",
                         ["refresh.mode.immediate"] = "立即刷新",
@@ -87,6 +109,9 @@ namespace FireTools.FocusOptimizer
                         ["status.normal"] = "正常",
                         ["status.scheduled"] = "自动刷新状态：{0}，预计 {1:0.0} 秒后刷新。",
                         ["status.current"] = "自动刷新状态：{0}",
+                        ["status.summary"] = "当前刷新管控",
+                        ["status.detail"] = "查看说明",
+                        ["status.detail.help"] = "若自动刷新被暂停，可以通过上方的“快速刷新/恢复自动刷新”按钮随时解除；当检测到大量改动时，建议先确认 Git 状态再刷新。",
                         ["status.massiveChange"] = "检测到 {0} 个外部改动（阈值 {1}），自动刷新仍被暂停，请手动处理。",
                         ["status.massiveChangeInfo"] = "最近记录的外部改动数量：{0}",
                         
@@ -113,6 +138,12 @@ namespace FireTools.FocusOptimizer
                         ["stats.duration.tooltip"] = "显示最近一次资源刷新操作所花费的时间（秒）。数值越小表示性能越好。",
                         ["stats.massChange"] = "最近外部改动数",
                         ["stats.massChange.tooltip"] = "Unity 失焦期间检测到的外部文件改动数量，可用来判断刷新成本。",
+                        ["stats.massChange.levelLow"] = "检测到 {0} 个改动（阈值 {1}），刷新压力较低，可放心执行。",
+                        ["stats.massChange.levelMid"] = "检测到 {0} 个改动，接近阈值 {1}，建议完成手头工作后再刷新。",
+                        ["stats.massChange.levelHigh"] = "检测到 {0} 个改动，已超过阈值 {1}，刷新前请先确认 Git 或备份状态。",
+                        ["stats.lastTime"] = "距离上次刷新",
+                        ["stats.lastTime.tooltip"] = "Unity 上次执行刷新到现在经过的时间，帮助判断是否需要再次刷新。",
+                        ["stats.lastTime.value"] = "{0:0.0}s 前",
                         
                         // 设置窗口
                         ["settings.title"] = "设置",
@@ -137,6 +168,26 @@ namespace FireTools.FocusOptimizer
                         ["toolbar.help.tooltip"] = "Open help documentation page",
                         ["toolbar.settings"] = "Settings",
                         ["toolbar.settings.tooltip"] = "Open settings window to adjust language and preferences",
+                        ["toolbar.action.refresh"] = "Quick Refresh",
+                        ["toolbar.action.refresh.tooltip"] = "Refresh assets immediately regardless of current strategy.",
+                        ["toolbar.action.restore"] = "Restore Auto-Refresh",
+                        ["toolbar.action.restore.tooltip"] = "When auto-refresh is suspended, resume Unity's refresh immediately.",
+                        // Onboarding
+                        ["onboarding.header"] = "Recommended Starter Setup",
+                        ["onboarding.header.tooltip"] = "A preset based on common mid/large projects to help you get stable results on first use.",
+                        ["onboarding.description"] = "We suggest enabling throttled refresh + large change detection + console hints. This combination dramatically lowers the risk of Unity freezing when returning from external editors.",
+                        ["onboarding.recommendation"] = "Apply once and fine-tune later. This hint only appears the first time.",
+                        ["onboarding.button.apply"] = "Apply Recommended Preset",
+                        ["onboarding.button.dismiss"] = "Hide This Hint",
+
+                        // Menu & dialogs
+                        ["menu.refresh.reason"] = "Menu Triggered Refresh",
+                        ["dialog.massChange.title"] = "Large External Changes Detected",
+                        ["dialog.massChange.content"] = "{0} external changes were detected. Refreshing right now may cause noticeable lag or editor freeze. What would you like to do?",
+                        ["dialog.massChange.refresh"] = "Refresh Now",
+                        ["dialog.massChange.keep"] = "Keep Suspended",
+                        ["dialog.massChange.restore"] = "Restore Auto-Refresh Only",
+                        ["dialog.massChange.refreshReason"] = "Manual refresh after large change",
                         
                         // Refresh Strategy
                         ["refresh.header"] = "Refresh Strategy",
@@ -153,6 +204,8 @@ namespace FireTools.FocusOptimizer
                         ["refresh.massBypass.tooltip"] = "If the detected external change count exceeds the threshold, keep auto-refresh suspended and wait for manual confirmation to avoid Unity freezing.",
                         ["refresh.massThreshold"] = "Change threshold",
                         ["refresh.massThreshold.tooltip"] = "Number of file changes considered as “massive”. Above this value, auto-refresh will stay suspended. Recommended 100-500.",
+                        ["refresh.experimentalBackgroundImport"] = "Experimental: background import while unfocused",
+                        ["refresh.experimentalBackgroundImport.tooltip"] = "Try to incrementally import files that changed while Unity is unfocused so that fewer edits remain when you return. Risks: importing scripts still triggers recompilation/domain reload, partially written files may fail, and heavy assets still consume IO/CPU. Enable only if you accept these trade-offs.",
                         ["refresh.mode"] = "Focus Return Strategy",
                         ["refresh.mode.tooltip"] = "Choose the refresh strategy when Unity regains focus:\n• Immediate: Refresh immediately, suitable for small projects\n• Throttled: Refresh after a delay to reduce lag\n• Manual: No automatic refresh, requires manual trigger",
                         ["refresh.mode.immediate"] = "Immediate",
@@ -175,6 +228,9 @@ namespace FireTools.FocusOptimizer
                         ["status.normal"] = "Normal",
                         ["status.scheduled"] = "Auto-refresh status: {0}, scheduled in {1:0.0} seconds.",
                         ["status.current"] = "Auto-refresh status: {0}",
+                        ["status.summary"] = "Current Refresh Control",
+                        ["status.detail"] = "Show guidance",
+                        ["status.detail.help"] = "If auto-refresh is suspended, use the “Quick Refresh/Restore” buttons above. When large change detection triggers, confirm Git state before refreshing.",
                         ["status.massiveChange"] = "{0} external changes detected (threshold {1}). Auto-refresh remains suspended. Please refresh manually.",
                         ["status.massiveChangeInfo"] = "Latest external change count: {0}",
                         
@@ -201,6 +257,12 @@ namespace FireTools.FocusOptimizer
                         ["stats.duration.tooltip"] = "Shows the time (in seconds) taken by the most recent asset refresh operation. Lower values indicate better performance.",
                         ["stats.massChange"] = "External change count",
                         ["stats.massChange.tooltip"] = "Number of file changes detected while Unity was unfocused. Helps estimate refresh cost.",
+                        ["stats.massChange.levelLow"] = "{0} changes detected (threshold {1}). Refresh cost is low.",
+                        ["stats.massChange.levelMid"] = "{0} changes detected, close to threshold {1}. Consider wrapping current work before refreshing.",
+                        ["stats.massChange.levelHigh"] = "{0} changes detected, exceeding threshold {1}. Verify Git/backup state before refreshing.",
+                        ["stats.lastTime"] = "Time since last refresh",
+                        ["stats.lastTime.tooltip"] = "Time elapsed since Unity last executed an asset refresh.",
+                        ["stats.lastTime.value"] = "{0:0.0}s ago",
                         
                         // Settings Window
                         ["settings.title"] = "Settings",
@@ -225,6 +287,26 @@ namespace FireTools.FocusOptimizer
                         ["toolbar.help.tooltip"] = "ヘルプドキュメントページを開く",
                         ["toolbar.settings"] = "設定",
                         ["toolbar.settings.tooltip"] = "設定ウィンドウを開いて言語と設定を調整",
+                        ["toolbar.action.refresh"] = "クイックリフレッシュ",
+                        ["toolbar.action.refresh.tooltip"] = "現在の戦略に関係なく、すぐにアセットをリフレッシュします。",
+                        ["toolbar.action.restore"] = "自動リフレッシュ復元",
+                        ["toolbar.action.restore.tooltip"] = "自動リフレッシュが停止している場合、すぐに Unity のリフレッシュを復元します。",
+                        // 初回ガイド
+                        ["onboarding.header"] = "推奨スターター設定",
+                        ["onboarding.header.tooltip"] = "多くの中大型プロジェクトで安定しているプリセットです。初回利用時の失敗を減らします。",
+                        ["onboarding.description"] = "スロットルリフレッシュ + 大量変更検出 + コンソールヒントを有効にすることを推奨します。外部エディターから戻った際のフリーズを大幅に軽減できます。",
+                        ["onboarding.recommendation"] = "一度適用してから細かく調整できます。このヒントは初回のみ表示されます。",
+                        ["onboarding.button.apply"] = "推奨設定を適用",
+                        ["onboarding.button.dismiss"] = "今後表示しない",
+
+                        // メニューとダイアログ
+                        ["menu.refresh.reason"] = "メニューからのリフレッシュ",
+                        ["dialog.massChange.title"] = "大量の外部変更を検出",
+                        ["dialog.massChange.content"] = "{0} 件の外部変更が検出されました。今すぐリフレッシュするとラグやフリーズの原因となる可能性があります。どうしますか？",
+                        ["dialog.massChange.refresh"] = "今すぐリフレッシュ",
+                        ["dialog.massChange.keep"] = "一時停止を維持",
+                        ["dialog.massChange.restore"] = "自動リフレッシュのみ復元",
+                        ["dialog.massChange.refreshReason"] = "大量変更後の手動リフレッシュ",
                         
                         // リフレッシュ戦略
                         ["refresh.header"] = "リフレッシュ戦略",
@@ -241,6 +323,8 @@ namespace FireTools.FocusOptimizer
                         ["refresh.massBypass.tooltip"] = "検出した外部変更数が閾値を超えた場合、自動リフレッシュをすぐに再開せず、手動での確認を待ちます。Unity のフリーズを防ぎます。",
                         ["refresh.massThreshold"] = "変更数の閾値",
                         ["refresh.massThreshold.tooltip"] = "「大量変更」と見なすファイル数。超えると自動リフレッシュを保留します。推奨 100～500。",
+                        ["refresh.experimentalBackgroundImport"] = "実験的：フォーカス外でのバックグラウンド導入",
+                        ["refresh.experimentalBackgroundImport.tooltip"] = "Unity がフォーカス外の間に変更されたアセットを段階的に導入し、前面に戻った際の残タスクを減らします。リスク：スクリプト導入は再コンパイル/ドメインリロードを引き起こし、書き込み中のファイルは失敗し、大型アセットは依然として IO/CPU を占有します。追加のカクつきを許容できる場合のみ有効化してください。",
                         ["refresh.mode"] = "フォーカス復帰戦略",
                         ["refresh.mode.tooltip"] = "Unity がフォーカスを再取得した際のリフレッシュ戦略を選択：\n• 即座：即座にリフレッシュ、小規模プロジェクトに適しています\n• スロットル：遅延後にリフレッシュ、遅延を軽減\n• 手動：自動リフレッシュなし、手動でトリガーが必要",
                         ["refresh.mode.immediate"] = "即座",
@@ -263,6 +347,9 @@ namespace FireTools.FocusOptimizer
                         ["status.normal"] = "正常",
                         ["status.scheduled"] = "自動リフレッシュステータス：{0}、{1:0.0} 秒後に予定。",
                         ["status.current"] = "自動リフレッシュステータス：{0}",
+                        ["status.summary"] = "現在のリフレッシュ管理",
+                        ["status.detail"] = "ガイダンスを表示",
+                        ["status.detail.help"] = "自動リフレッシュが停止している場合は、上部の「クイックリフレッシュ/復元」ボタンで解除できます。大量変更検出時は、リフレッシュ前に Git 状態を確認してください。",
                         ["status.massiveChange"] = "外部変更 {0} 件を検出（閾値 {1}）。自動リフレッシュは停止したままです。手動で処理してください。",
                         ["status.massiveChangeInfo"] = "直近で検出した外部変更数：{0}",
                         
@@ -289,6 +376,12 @@ namespace FireTools.FocusOptimizer
                         ["stats.duration.tooltip"] = "最新のアセットリフレッシュ操作にかかった時間（秒）を表示します。値が小さいほどパフォーマンスが良いことを示します。",
                         ["stats.massChange"] = "外部変更数",
                         ["stats.massChange.tooltip"] = "Unity がフォーカス外だった間に検出したファイル変更数。リフレッシュコスト推定に役立ちます。",
+                        ["stats.massChange.levelLow"] = "{0} 件の変更（閾値 {1}）。リフレッシュコストは低いです。",
+                        ["stats.massChange.levelMid"] = "{0} 件の変更。閾値 {1} に近いので、作業を区切ってからリフレッシュすることを推奨します。",
+                        ["stats.massChange.levelHigh"] = "{0} 件の変更。閾値 {1} を超えています。リフレッシュ前に Git/バックアップ状態を確認してください。",
+                        ["stats.lastTime"] = "前回リフレッシュからの時間",
+                        ["stats.lastTime.tooltip"] = "Unity が最後にアセットをリフレッシュしてからの経過時間です。",
+                        ["stats.lastTime.value"] = "{0:0.0}秒前",
                         
                         // 設定ウィンドウ
                         ["settings.title"] = "設定",

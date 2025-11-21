@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-namespace Fire.GitAssistant
+namespace Fire.VersionControlAssistant
 {
-    internal sealed class GitPullHistoryWindow : EditorWindow
+    internal sealed class VersionControlPullHistoryWindow : EditorWindow
     {
         private const int DefaultLogCount = 40;
 
@@ -21,7 +21,7 @@ namespace Fire.GitAssistant
 
         public static void Show(string remote, string branch, Action<string> onConfirm)
         {
-            var window = CreateInstance<GitPullHistoryWindow>();
+            var window = CreateInstance<VersionControlPullHistoryWindow>();
             window._remote = remote ?? string.Empty;
             window._branch = branch ?? string.Empty;
             window._onConfirm = onConfirm;

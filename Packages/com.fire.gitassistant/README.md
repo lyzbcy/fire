@@ -30,7 +30,7 @@
 
 ## 自定义扩展
 
-- 所有 UI 逻辑位于 `Editor/GitAssistantWindow.cs`。
+- 所有 UI 逻辑位于 `Editor/VersionControlAssistantWindow.cs`。
 - Git 命令封装见 `Editor/GitProcessUtility.cs`，可根据需要拓展（如 `git tag`、`git stash`）。
 - 树视图实现位于 `Editor/GitTreeView.cs`，可扩展右键菜单、单独暂存等功能。
 

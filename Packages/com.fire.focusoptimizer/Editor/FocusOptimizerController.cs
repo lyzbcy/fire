@@ -67,6 +67,14 @@ namespace FireTools.FocusOptimizer
             {
                 PerformRefresh(_scheduledReason);
             }
+
+            bool shouldProcessBackgroundImport =
+                _autoRefreshSuspended &&
+                settings.SuspendAutoRefreshWhenInactive &&
+                settings.DetectLargeExternalChanges &&
+                settings.EnableExperimentalBackgroundImport;
+
+            FocusBackgroundImporter.ProcessIncrementalImports(shouldProcessBackgroundImport);
         }
 
         private static void HandleLostFocus(FocusOptimizerSettings settings)
@@ -80,6 +88,18 @@ namespace FireTools.FocusOptimizer
             LogInfo("Unity 失去焦点，暂停自动刷新。");
 
             FocusChangeTracker.StartTrackingIfEnabled(settings.DetectLargeExternalChanges);
+        }
+
+        [MenuItem("Tools/焦点卡顿优化助手/立即刷新", priority = 202)]
+        private static void MenuRefreshNow()
+        {
+            RequestManualRefresh(FocusOptimizerLocalization.Tr("menu.refresh.reason"));
+        }
+
+        [MenuItem("Tools/焦点卡顿优化助手/恢复自动刷新", priority = 203)]
+        private static void MenuRestoreAutoRefresh()
+        {
+            ForceAllowAutoRefresh();
         }
 
         private static void HandleGainFocus(FocusOptimizerSettings settings)
@@ -187,6 +207,29 @@ namespace FireTools.FocusOptimizer
             {
                 FocusOptimizerWindow.NotifyManualRefreshNeeded();
             }
+
+            EditorApplication.delayCall += () =>
+            {
+                int option = EditorUtility.DisplayDialogComplex(
+                    FocusOptimizerLocalization.Tr("dialog.massChange.title"),
+                    FocusOptimizerLocalization.Tr("dialog.massChange.content", changeCount),
+                    FocusOptimizerLocalization.Tr("dialog.massChange.refresh"),
+                    FocusOptimizerLocalization.Tr("dialog.massChange.keep"),
+                    FocusOptimizerLocalization.Tr("dialog.massChange.restore"));
+
+                switch (option)
+                {
+                    case 0:
+                        PerformRefresh(FocusOptimizerLocalization.Tr("dialog.massChange.refreshReason"));
+                        break;
+                    case 1:
+                        // 保持暂停，什么也不做
+                        break;
+                    case 2:
+                        ForceAllowAutoRefresh();
+                        break;
+                }
+            };
         }
     }
 }

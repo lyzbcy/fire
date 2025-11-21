@@ -23,6 +23,7 @@ namespace FireTools.FocusOptimizer
         [SerializeField] private bool _detectLargeExternalChanges = true;
         [SerializeField] private bool _autoBypassLargeChange = true;
         [SerializeField] private int _largeChangeThreshold = 200;
+        [SerializeField] private bool _enableExperimentalBackgroundImport;
 
         [Header("Enter Play Mode 配置")]
         [SerializeField] private bool _enableEnterPlayModeHelper = false;
@@ -37,6 +38,7 @@ namespace FireTools.FocusOptimizer
         [SerializeField] private double _lastRefreshEditorTime;
         [SerializeField] private int _lastDetectedChangeCount;
         [SerializeField] private bool _lastRefreshSkippedDueToLargeChange;
+        [SerializeField] private bool _hasCompletedOnboarding;
 
         internal bool EnableOptimizer
         {
@@ -92,6 +94,12 @@ namespace FireTools.FocusOptimizer
             set => SetValue(ref _largeChangeThreshold, Mathf.Clamp(value, 10, 5000));
         }
 
+        internal bool EnableExperimentalBackgroundImport
+        {
+            get => _enableExperimentalBackgroundImport;
+            set => SetValue(ref _enableExperimentalBackgroundImport, value);
+        }
+
         internal bool EnableEnterPlayModeHelper
         {
             get => _enableEnterPlayModeHelper;
@@ -144,6 +152,12 @@ namespace FireTools.FocusOptimizer
         {
             get => _lastRefreshSkippedDueToLargeChange;
             set => SetValue(ref _lastRefreshSkippedDueToLargeChange, value);
+        }
+
+        internal bool HasCompletedOnboarding
+        {
+            get => _hasCompletedOnboarding;
+            set => SetValue(ref _hasCompletedOnboarding, value);
         }
 
         internal void SaveSettings()

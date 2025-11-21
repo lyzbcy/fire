@@ -41,7 +41,7 @@ namespace Fire.GitAssistant
                 {
                     GitLanguage.ChineseSimplified, new Dictionary<string, string>
                     {
-                        ["window.title"] = "Git 助手",
+                        ["window.title"] = "版本控制助手",
                         ["toolbar.refresh"] = "刷新",
                         ["toolbar.stageAll"] = "全部暂存",
                         ["toolbar.pull"] = "拉取",
@@ -59,7 +59,7 @@ namespace Fire.GitAssistant
                         ["hero.metric.branch"] = "当前分支",
                         ["hero.metric.remote"] = "推送远端",
                         ["hero.helpButton"] = "查看完整使用教程",
-                        ["hero.helpTooltip"] = "打开在线帮助，了解 Git 助手的全部特性。",
+                        ["hero.helpTooltip"] = "打开在线帮助，了解版本控制助手的全部特性。",
                         ["status.overview"] = "状态总览",
                         ["status.currentBranch"] = "当前分支：{0}",
                         ["status.branchUnknown"] = "未检测到分支",
@@ -144,7 +144,7 @@ namespace Fire.GitAssistant
                         ["hero.metric.branch"] = "Active branch",
                         ["hero.metric.remote"] = "Push remote",
                         ["hero.helpButton"] = "Open full guide",
-                        ["hero.helpTooltip"] = "Opens the online documentation for Git 助手.",
+                        ["hero.helpTooltip"] = "Opens the online documentation for Version Control Assistant.",
                         ["status.overview"] = "Status overview",
                         ["status.currentBranch"] = "Current branch: {0}",
                         ["status.branchUnknown"] = "No branch detected",
@@ -229,7 +229,7 @@ namespace Fire.GitAssistant
                         ["hero.metric.branch"] = "現在のブランチ",
                         ["hero.metric.remote"] = "プッシュ先リモート",
                         ["hero.helpButton"] = "オンラインガイドを見る",
-                        ["hero.helpTooltip"] = "Git 助手の詳細ドキュメントをブラウザで開きます。",
+                        ["hero.helpTooltip"] = "バージョンコントロールアシスタントの詳細ドキュメントをブラウザで開きます。",
                         ["status.overview"] = "ステータス概要",
                         ["status.currentBranch"] = "現在のブランチ：{0}",
                         ["status.branchUnknown"] = "ブランチを検出できません",

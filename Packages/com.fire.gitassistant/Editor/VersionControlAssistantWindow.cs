@@ -5,9 +5,9 @@ using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
-namespace Fire.GitAssistant
+namespace Fire.VersionControlAssistant
 {
-    public sealed class GitAssistantWindow : EditorWindow
+    public sealed class VersionControlAssistantWindow : EditorWindow
     {
         private const float RightPanelMinWidth = 320f;
         private const string HelpUrl = "https://lyzbcy.github.io/posts/Unity%E6%8F%92%E4%BB%B6-Git%E5%8A%A9%E6%89%8B%E5%BC%80%E5%8F%91%E6%8A%A5%E5%91%8A/";
@@ -88,7 +88,7 @@ namespace Fire.GitAssistant
         [MenuItem("Tools/Version Control Assistant")]
         public static void ShowWindow()
         {
-            var window = GetWindow<GitAssistantWindow>();
+            var window = GetWindow<VersionControlAssistantWindow>();
             window.minSize = new Vector2(760, 460);
             window.titleContent = new GUIContent(GitLocalization.Tr("window.title"));
             window.RefreshData();
@@ -588,7 +588,7 @@ namespace Fire.GitAssistant
 
             var remote = _remoteName?.Trim() ?? string.Empty;
             var branch = _pushBranch?.Trim() ?? string.Empty;
-            GitPullHistoryWindow.Show(remote, branch, hash => HandleHistoricalPull(remote, branch, hash));
+            VersionControlPullHistoryWindow.Show(remote, branch, hash => HandleHistoricalPull(remote, branch, hash));
         }
 
         private void HandleHistoricalPull(string remote, string branch, string commitHash)
@@ -723,7 +723,7 @@ namespace Fire.GitAssistant
 
         private void LoadPreferences()
         {
-            var prefs = GitAssistantPreferences.Instance;
+            var prefs = VersionControlAssistantPreferences.Instance;
             _remoteName = prefs.DefaultRemote;
             _pushBranch = prefs.DefaultPushBranch;
             _useCustomPushTarget = prefs.UseCustomPushTarget;
@@ -732,7 +732,7 @@ namespace Fire.GitAssistant
 
         private void SavePreferences()
         {
-            var prefs = GitAssistantPreferences.Instance;
+            var prefs = VersionControlAssistantPreferences.Instance;
             prefs.DefaultRemote = _remoteName;
             prefs.DefaultPushBranch = _pushBranch;
             prefs.UseCustomPushTarget = _useCustomPushTarget;

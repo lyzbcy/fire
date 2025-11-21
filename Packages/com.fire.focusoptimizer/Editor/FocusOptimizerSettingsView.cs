@@ -11,6 +11,7 @@ namespace FireTools.FocusOptimizer
         private Vector2 _scrollPosition;
         private Texture2D _cardBackgroundTexture;
         private Texture2D _headerGradientTexture;
+        private bool _statusDetailFoldout = true;
 
         internal void OnGUI()
         {
@@ -22,9 +23,18 @@ namespace FireTools.FocusOptimizer
                 FocusOptimizerLocalization.Tr("window.title"),
                 FocusOptimizerLocalization.Tr("window.subtitle"));
 
+            DrawQuickActionsToolbar();
+
             _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
 
             EditorGUILayout.Space(10);
+
+            DrawOnboardingCard(settings);
+
+            if (!settings.HasCompletedOnboarding)
+            {
+                EditorGUILayout.Space(10);
+            }
 
             DrawRefreshCard(settings);
 
@@ -127,6 +137,98 @@ namespace FireTools.FocusOptimizer
             DrawDivider();
         }
 
+        private void DrawQuickActionsToolbar()
+        {
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            var toolbarStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 11,
+                padding = new RectOffset(10, 10, 4, 4),
+                margin = new RectOffset(2, 2, 2, 2)
+            };
+
+            if (GUILayout.Button(
+                    new GUIContent(
+                        FocusOptimizerLocalization.Tr("toolbar.action.refresh"),
+                        FocusOptimizerLocalization.Tr("toolbar.action.refresh.tooltip")),
+                    toolbarStyle,
+                    GUILayout.Width(120)))
+            {
+                FocusOptimizerController.RequestManualRefresh(FocusOptimizerLocalization.Tr("toolbar.action.refresh"));
+            }
+
+            if (GUILayout.Button(
+                    new GUIContent(
+                        FocusOptimizerLocalization.Tr("toolbar.action.restore"),
+                        FocusOptimizerLocalization.Tr("toolbar.action.restore.tooltip")),
+                    toolbarStyle,
+                    GUILayout.Width(120)))
+            {
+                FocusOptimizerController.ForceAllowAutoRefresh();
+            }
+
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.Space(5);
+        }
+
+        private void DrawOnboardingCard(FocusOptimizerSettings settings)
+        {
+            if (settings.HasCompletedOnboarding)
+            {
+                return;
+            }
+
+            DrawCard(() =>
+            {
+                DrawSectionHeader(
+                    FocusOptimizerLocalization.Tr("onboarding.header"),
+                    FocusOptimizerLocalization.Tr("onboarding.header.tooltip"),
+                    EditorGUIUtility.IconContent("d_UnityEditor.InspectorWindow").image);
+
+                EditorGUILayout.Space(6);
+                EditorGUILayout.LabelField(
+                    FocusOptimizerLocalization.Tr("onboarding.description"),
+                    EditorStyles.wordWrappedLabel);
+
+                EditorGUILayout.Space(6);
+                EditorGUILayout.HelpBox(
+                    FocusOptimizerLocalization.Tr("onboarding.recommendation"),
+                    MessageType.Info);
+
+                EditorGUILayout.Space(8);
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button(
+                        FocusOptimizerLocalization.Tr("onboarding.button.apply"),
+                        GUILayout.Height(28)))
+                {
+                    ApplyRecommendedPreset(settings);
+                    FocusOptimizerController.NotifySettingsChanged();
+                }
+
+                if (GUILayout.Button(
+                        FocusOptimizerLocalization.Tr("onboarding.button.dismiss"),
+                        GUILayout.Height(28)))
+                {
+                    settings.HasCompletedOnboarding = true;
+                }
+
+                EditorGUILayout.EndHorizontal();
+            });
+        }
+
+        private void ApplyRecommendedPreset(FocusOptimizerSettings settings)
+        {
+            settings.EnableOptimizer = true;
+            settings.SuspendAutoRefreshWhenInactive = true;
+            settings.RefreshMode = FocusRefreshMode.Throttled;
+            settings.ThrottleDelaySeconds = 1.5d;
+            settings.DetectLargeExternalChanges = true;
+            settings.AutoBypassLargeChange = true;
+            settings.ShowConsoleHints = true;
+            settings.HasCompletedOnboarding = true;
+        }
+
         private void DrawRefreshCard(FocusOptimizerSettings settings)
         {
             DrawCard(() =>
@@ -194,6 +296,15 @@ namespace FireTools.FocusOptimizer
                 {
                     settings.LargeChangeThreshold = threshold;
                 }
+
+                EditorGUILayout.Space(5);
+                EditorGUI.BeginDisabledGroup(!settings.SuspendAutoRefreshWhenInactive);
+                DrawToggleWithTooltip(
+                    FocusOptimizerLocalization.Tr("refresh.experimentalBackgroundImport"),
+                    FocusOptimizerLocalization.Tr("refresh.experimentalBackgroundImport.tooltip"),
+                    settings.EnableExperimentalBackgroundImport,
+                    value => settings.EnableExperimentalBackgroundImport = value);
+                EditorGUI.EndDisabledGroup();
 
                 EditorGUI.EndDisabledGroup();
                 EditorGUI.EndDisabledGroup();
@@ -397,6 +508,23 @@ namespace FireTools.FocusOptimizer
                     settings.LastDetectedChangeCount.ToString(),
                     statValueStyle);
                 EditorGUILayout.EndHorizontal();
+
+                DrawMassChangeHint(settings.LastDetectedChangeCount, settings.LargeChangeThreshold);
+
+                EditorGUILayout.Space(5);
+
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(
+                    new GUIContent(
+                        FocusOptimizerLocalization.Tr("stats.lastTime"),
+                        FocusOptimizerLocalization.Tr("stats.lastTime.tooltip")),
+                    statLabelStyle,
+                    GUILayout.Width(120));
+                double secondsSince = Mathf.Max(0f, (float)(EditorApplication.timeSinceStartup - settings.LastRefreshEditorTime));
+                EditorGUILayout.LabelField(
+                    FocusOptimizerLocalization.Tr("stats.lastTime.value", secondsSince),
+                    statValueStyle);
+                EditorGUILayout.EndHorizontal();
             });
         }
 
@@ -469,35 +597,36 @@ namespace FireTools.FocusOptimizer
 
         private void DrawStatusInfo()
         {
-            var statusStyle = new GUIStyle(EditorStyles.helpBox)
-            {
-                padding = new RectOffset(10, 10, 8, 8),
-                fontSize = 11
-            };
-
             string stateText = FocusOptimizerController.AutoRefreshSuspendedByPlugin
                 ? FocusOptimizerLocalization.Tr("status.suspended")
                 : FocusOptimizerLocalization.Tr("status.normal");
 
             double remaining = FocusOptimizerController.NextScheduledRefreshTime - EditorApplication.timeSinceStartup;
-            string statusMessage;
-            if (remaining > 0)
-            {
-                statusMessage = FocusOptimizerLocalization.Tr("status.scheduled", stateText, remaining);
-            }
-            else
-            {
-                statusMessage = FocusOptimizerLocalization.Tr("status.current", stateText);
-            }
+            string statusMessage = remaining > 0
+                ? FocusOptimizerLocalization.Tr("status.scheduled", stateText, remaining)
+                : FocusOptimizerLocalization.Tr("status.current", stateText);
 
-            var statusColor = FocusOptimizerController.AutoRefreshSuspendedByPlugin
-                ? new Color(0.8f, 0.6f, 0.2f)
-                : new Color(0.3f, 0.7f, 0.3f);
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField(
+                FocusOptimizerLocalization.Tr("status.summary"),
+                EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                statusMessage,
+                EditorStyles.wordWrappedLabel);
 
-            var originalColor = GUI.color;
-            GUI.color = statusColor;
-            EditorGUILayout.LabelField(new GUIContent(statusMessage), statusStyle);
-            GUI.color = originalColor;
+            _statusDetailFoldout = EditorGUILayout.Foldout(
+                _statusDetailFoldout,
+                FocusOptimizerLocalization.Tr("status.detail"),
+                true);
+            if (_statusDetailFoldout)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.LabelField(
+                    FocusOptimizerLocalization.Tr("status.detail.help"),
+                    EditorStyles.wordWrappedMiniLabel);
+                EditorGUI.indentLevel--;
+            }
+            EditorGUILayout.EndVertical();
 
             var settings = FocusOptimizerSettings.instance;
             if (settings.LastRefreshSkippedDueToLargeChange)
@@ -517,6 +646,24 @@ namespace FireTools.FocusOptimizer
                         settings.LastDetectedChangeCount),
                     MessageType.Info);
             }
+        }
+
+        private void DrawMassChangeHint(int changeCount, int threshold)
+        {
+            if (changeCount <= 0)
+            {
+                return;
+            }
+
+            string key = changeCount >= threshold
+                ? "stats.massChange.levelHigh"
+                : changeCount >= Mathf.Max(10, threshold / 2)
+                    ? "stats.massChange.levelMid"
+                    : "stats.massChange.levelLow";
+
+            EditorGUILayout.HelpBox(
+                FocusOptimizerLocalization.Tr(key, changeCount, threshold),
+                MessageType.None);
         }
 
         private void DrawDivider()
@@ -577,6 +724,9 @@ namespace FireTools.FocusOptimizer
         }
     }
 }
+
+
+
 
 
 

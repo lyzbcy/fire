@@ -6,7 +6,7 @@ namespace Fire.GitAssistant
 {
     internal sealed class GitAssistantSettingsProvider : SettingsProvider
     {
-        private const string Path = "Project/Git 助手";
+        private const string Path = "Project/Version Control Assistant";
         private SerializedObject _serializedSettings;
 
         private GitAssistantSettingsProvider(string settingsPath, SettingsScope scope)
@@ -22,7 +22,7 @@ namespace Fire.GitAssistant
 
             return new GitAssistantSettingsProvider(Path, SettingsScope.Project)
             {
-                label = "Git 助手",
+                label = "版本控制助手",
                 keywords = new System.Collections.Generic.HashSet<string>(new[]
                 {
                     "git", "remote", "branch", "push", "pull"

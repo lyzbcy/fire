@@ -88,7 +88,7 @@ namespace Fire.GitAssistant
         private bool CanPull => !string.IsNullOrWhiteSpace(_remoteName) && !string.IsNullOrWhiteSpace(_pushBranch);
         private bool CanPush => !string.IsNullOrWhiteSpace(GetPushTarget()) && !string.IsNullOrWhiteSpace(_pushBranch);
 
-        [MenuItem("Tools/Git 助手")]
+        [MenuItem("Tools/Version Control Assistant")]
         public static void ShowWindow()
         {
             var window = GetWindow<GitAssistantWindow>();
@@ -693,7 +693,7 @@ namespace Fire.GitAssistant
             menu.AddItem(
                 new GUIContent(GitLocalization.Tr("toolbar.openSettings")),
                 false,
-                () => SettingsService.OpenProjectSettings("Project/Git 助手"));
+                () => SettingsService.OpenProjectSettings("Project/Version Control Assistant"));
 
             menu.DropDown(anchorRect);
         }
