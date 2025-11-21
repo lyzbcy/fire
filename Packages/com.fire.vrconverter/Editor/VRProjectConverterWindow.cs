@@ -27,7 +27,8 @@ namespace OneClick.VRConverter.Editor
         {
             "com.unity.xr.management",
             "com.unity.xr.openxr",
-            "com.unity.xr.interaction.toolkit"
+            "com.unity.xr.interaction.toolkit",
+            "com.unity.inputsystem"
         };
 
         private static readonly BuildTargetGroup[] TargetGroups =
@@ -43,6 +44,9 @@ namespace OneClick.VRConverter.Editor
         private const string DefaultXriInputActionsGuid = "c348712bda248c246b8c49b3db54643f";
         private const string DeviceSimulatorSettingsTypeName = "UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation.XRDeviceSimulatorSettings";
         private const string DeviceSimulatorPackageId = "Packages/com.unity.xr.interaction.toolkit";
+        private const string StarterAssetsSampleRelativePath = "Samples~/Starter Assets";
+        private const string StarterAssetsSampleDisplayName = "Starter Assets";
+        private const string GeneratedStarterAssetsFolder = GeneratedRootFolder + "/StarterAssets";
         private const string DeviceSimulatorSampleRelativePath = "Samples~/XR Device Simulator";
         private const string DeviceSimulatorPrefabName = "XR Device Simulator.prefab";
         private const string GeneratedSimulatorFolder = "Assets/VRConverterGenerated/DeviceSimulator";
@@ -1125,23 +1129,51 @@ namespace OneClick.VRConverter.Editor
 
         private bool TryCopyDeviceSimulatorSample()
         {
-            var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssetPath(DeviceSimulatorPackageId);
+            if (TryCopyPackageSampleFolder(DeviceSimulatorPackageId, DeviceSimulatorSampleRelativePath, GeneratedSimulatorFolder, "XR Device Simulator"))
+            {
+                Log("已自动导入 XR Device Simulator Sample，位于 Assets/VRConverterGenerated/DeviceSimulator。");
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryEnsureStarterAssetsSampleAvailable()
+        {
+            var existing = AssetDatabase.FindAssets("\"XRI Default Input Actions\" t:InputActionAsset");
+            if (existing != null && existing.Length > 0)
+            {
+                return true;
+            }
+
+            if (TryCopyPackageSampleFolder(DeviceSimulatorPackageId, StarterAssetsSampleRelativePath, GeneratedStarterAssetsFolder, StarterAssetsSampleDisplayName))
+            {
+                Log("已复制 Starter Assets Sample，位于 Assets/VRConverterGenerated/StarterAssets。");
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryCopyPackageSampleFolder(string packageAssetPath, string sampleRelativePath, string destinationFolder, string sampleDisplayName)
+        {
+            var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssetPath(packageAssetPath);
             if (packageInfo == null)
             {
-                Log("未能定位 XR Interaction Toolkit 包，无法复制 XR Device Simulator Sample。");
+                Log($"未能定位 {sampleDisplayName} 所在的包（{packageAssetPath}）。");
                 return false;
             }
 
-            var sourcePath = Path.Combine(packageInfo.resolvedPath, DeviceSimulatorSampleRelativePath);
+            var sourcePath = Path.Combine(packageInfo.resolvedPath, sampleRelativePath);
             if (!Directory.Exists(sourcePath))
             {
-                Log("当前 XR Interaction Toolkit 版本未包含 XR Device Simulator Sample，已跳过复制。");
+                Log($"在 {packageInfo.resolvedPath} 中未找到 {sampleDisplayName} Sample（路径：{sampleRelativePath}）。");
                 return false;
             }
 
             EnsureDirectoryExists(GeneratedRootFolder);
 
-            var destinationPath = Path.GetFullPath(GeneratedSimulatorFolder);
+            var destinationPath = Path.GetFullPath(destinationFolder);
             if (Directory.Exists(destinationPath))
             {
                 FileUtil.DeleteFileOrDirectory(destinationPath);
@@ -1154,7 +1186,6 @@ namespace OneClick.VRConverter.Editor
 
             FileUtil.CopyFileOrDirectory(sourcePath, destinationPath);
             AssetDatabase.Refresh();
-            Log("已自动导入 XR Device Simulator Sample，位于 Assets/VRConverterGenerated/DeviceSimulator。");
             return true;
         }
 
@@ -1616,6 +1647,12 @@ namespace OneClick.VRConverter.Editor
 
         private void PromptStarterAssetsImport()
         {
+            if (TryEnsureStarterAssetsSampleAvailable())
+            {
+                EditorUtility.DisplayDialog("提示", "已自动复制 Starter Assets Sample，稍后可重新执行操作。", "好的");
+                return;
+            }
+
             const string packageName = "com.unity.xr.interaction.toolkit";
             const string sampleName = "Starter Assets";
             PromptSampleImport(
@@ -2078,9 +2115,26 @@ namespace OneClick.VRConverter.Editor
 
             if (asset == null)
             {
-                Log("未在项目中找到“XRI Default Input Actions.inputactions”。请在 Package Manager 中重新导入 XR Interaction Toolkit 的 Starter Assets。");
-                PromptStarterAssetsImport();
-                return null;
+                if (TryEnsureStarterAssetsSampleAvailable())
+                {
+                    var guids = AssetDatabase.FindAssets("\"XRI Default Input Actions\" t:InputActionAsset");
+                    foreach (var guid in guids)
+                    {
+                        var path = AssetDatabase.GUIDToAssetPath(guid);
+                        asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(path);
+                        if (asset != null)
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                if (asset == null)
+                {
+                    Log("未在项目中找到“XRI Default Input Actions.inputactions”。请在 Package Manager 中重新导入 XR Interaction Toolkit 的 Starter Assets。");
+                    PromptStarterAssetsImport();
+                    return null;
+                }
             }
 
             _cachedDefaultInputActions = asset;

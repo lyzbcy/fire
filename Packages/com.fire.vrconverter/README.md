@@ -147,6 +147,7 @@ git push
    - `com.unity.xr.management`
    - `com.unity.xr.openxr`
    - `com.unity.xr.interaction.toolkit`
+   - `com.unity.inputsystem`
 3. 缺失或版本无效时，自动调用 Package Manager 安装/更新，并在日志输出结果；安装完成后 Unity 会重新导入并编译。
 4. 编译完成（`EditorApplication.isCompiling == false`）后，自动执行：
    - 为 Standalone / Android 创建并注册 `XRGeneralSettings`、`XRManagerSettings`。
@@ -156,7 +157,7 @@ git push
 ### 手动流程（分步骤执行）
 
 #### Step 1：确保 XR 依赖
-适用于刚导入工具、尚未添加 XR 包的项目。
+适用于刚导入工具、尚未添加 XR 包或 Unity 新输入系统的项目。
 1. 点击 **第1步：只检查并添加 XR 依赖包**。
 2. 工具会移除 `manifest.json` 中的 `"latest"` 占位符，并安装缺失包。
 3. 关注日志确认安装完成；若提示等待编译，请稍后再执行 Step 2。
@@ -170,12 +171,13 @@ git push
    - 在 `EditorBuildSettings` 中注册对应 XR General Settings。
    - 为 Standalone/Android 创建 `XR Manager Settings` 并启用 OpenXR Loader。
    - 当前场景生成 XR Origin（包含 `Camera Offset`、`Main Camera`、左右手控制器、Tracked Pose Driver、Action Based Controller、XR Ray Interactor、Line Renderer、XR Interaction Manager、Input Action Manager）。
+   - 若项目缺少 `XRI Default Input Actions`，会尝试自动从 XR Interaction Toolkit 的 Starter Assets Sample 复制所需输入资产并重新绑定。
    - 若 XR Interaction Toolkit 不可用，则生成基础 `VRRig`（主相机 + 左右手空节点）。
    - 自动禁用场景中可识别的原 `Main Camera`。
 
 ### 常见问题
 - **“未检测到 XR Management 程序集”**：XR 包仍在导入或版本不符，等待编译完成后重试 Step 2。
-- **控制器没有输入行为**：工具仅创建 Action Based Controller，未自动导入默认 Input Action。需手动导入 `XRI Default Input Actions` 并绑定到 `Input Action Manager`。
+- **控制器没有输入行为**：工具会尝试自动复制 XR Interaction Toolkit 的 Starter Assets Sample 并绑定 `XRI Default Input Actions`。若日志仍提示未找到，请在 Package Manager 中手动导入该 Sample。
 - **场景已有自定义 XR 结构**：工具会尽量复用并补齐缺失节点；执行前建议备份场景。
 
 ### 日志查看
