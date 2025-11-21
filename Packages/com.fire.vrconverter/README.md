@@ -178,6 +178,7 @@ git push
 ### 常见问题
 - **“未检测到 XR Management 程序集”**：XR 包仍在导入或版本不符，等待编译完成后重试 Step 2。
 - **控制器没有输入行为**：工具会尝试自动复制 XR Interaction Toolkit 的 Starter Assets Sample 并绑定 `XRI Default Input Actions`。若日志仍提示未找到，请在 Package Manager 中手动导入该 Sample。
+- **XRI Action Map 命名变化**：XR Interaction Toolkit 2.6 之后将 `XRI Left`/`XRI Right` 重命名为 `XRI LeftHand`/`XRI RightHand`。工具已自动兼容新旧命名，无需手动改脚本。
 - **场景已有自定义 XR 结构**：工具会尽量复用并补齐缺失节点；执行前建议备份场景。
 
 ### 日志查看

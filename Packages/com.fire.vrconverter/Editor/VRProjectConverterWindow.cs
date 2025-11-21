@@ -1886,57 +1886,69 @@ namespace OneClick.VRConverter.Editor
         private struct ControllerActionBinding
         {
             public string PropertyName;
-            public string MapName;
+            public IReadOnlyList<string> MapNames;
             public string ActionName;
 
             public ControllerActionBinding(string propertyName, string mapName, string actionName)
             {
                 PropertyName = propertyName;
-                MapName = mapName;
+                MapNames = new[] { mapName };
+                ActionName = actionName;
+            }
+
+            public ControllerActionBinding(string propertyName, IReadOnlyList<string> mapNames, string actionName)
+            {
+                PropertyName = propertyName;
+                MapNames = mapNames;
                 ActionName = actionName;
             }
         }
 
+        private static readonly string[] LeftControllerMapCandidates = { "XRI Left", "XRI LeftHand" };
+        private static readonly string[] LeftInteractionMapCandidates = { "XRI Left Interaction", "XRI LeftHand Interaction" };
+        private static readonly string[] RightControllerMapCandidates = { "XRI Right", "XRI RightHand" };
+        private static readonly string[] RightInteractionMapCandidates = { "XRI Right Interaction", "XRI RightHand Interaction" };
+
         private static readonly ControllerActionBinding[] LeftControllerBindings =
         {
-            new ControllerActionBinding("m_PositionAction", "XRI Left", "Position"),
-            new ControllerActionBinding("m_RotationAction", "XRI Left", "Rotation"),
-            new ControllerActionBinding("m_IsTrackedAction", "XRI Left", "Is Tracked"),
-            new ControllerActionBinding("m_TrackingStateAction", "XRI Left", "Tracking State"),
-            new ControllerActionBinding("m_SelectAction", "XRI Left Interaction", "Select"),
-            new ControllerActionBinding("m_SelectActionValue", "XRI Left Interaction", "Select Value"),
-            new ControllerActionBinding("m_ActivateAction", "XRI Left Interaction", "Activate"),
-            new ControllerActionBinding("m_ActivateActionValue", "XRI Left Interaction", "Activate Value"),
-            new ControllerActionBinding("m_UIPressAction", "XRI Left Interaction", "UI Press"),
-            new ControllerActionBinding("m_UIPressActionValue", "XRI Left Interaction", "UI Press Value"),
-            new ControllerActionBinding("m_UIScrollAction", "XRI Left Interaction", "UI Scroll"),
-            new ControllerActionBinding("m_HapticDeviceAction", "XRI Left", "Haptic Device"),
-            new ControllerActionBinding("m_RotateAnchorAction", "XRI Left Interaction", "Rotate Manipulation"),
-            new ControllerActionBinding("m_DirectionalAnchorRotationAction", "XRI Left Interaction", "Directional Manipulation"),
-            new ControllerActionBinding("m_TranslateAnchorAction", "XRI Left Interaction", "Translate Manipulation"),
-            new ControllerActionBinding("m_ScaleToggleAction", "XRI Left Interaction", "Scale Toggle"),
-            new ControllerActionBinding("m_ScaleDeltaAction", "XRI Left Interaction", "Scale Over Time")
+            new ControllerActionBinding("m_PositionAction", LeftControllerMapCandidates, "Position"),
+            new ControllerActionBinding("m_RotationAction", LeftControllerMapCandidates, "Rotation"),
+            new ControllerActionBinding("m_IsTrackedAction", LeftControllerMapCandidates, "Is Tracked"),
+            new ControllerActionBinding("m_TrackingStateAction", LeftControllerMapCandidates, "Tracking State"),
+            new ControllerActionBinding("m_SelectAction", LeftInteractionMapCandidates, "Select"),
+            new ControllerActionBinding("m_SelectActionValue", LeftInteractionMapCandidates, "Select Value"),
+            new ControllerActionBinding("m_ActivateAction", LeftInteractionMapCandidates, "Activate"),
+            new ControllerActionBinding("m_ActivateActionValue", LeftInteractionMapCandidates, "Activate Value"),
+            new ControllerActionBinding("m_UIPressAction", LeftInteractionMapCandidates, "UI Press"),
+            new ControllerActionBinding("m_UIPressActionValue", LeftInteractionMapCandidates, "UI Press Value"),
+            new ControllerActionBinding("m_UIScrollAction", LeftInteractionMapCandidates, "UI Scroll"),
+            new ControllerActionBinding("m_HapticDeviceAction", LeftControllerMapCandidates, "Haptic Device"),
+            new ControllerActionBinding("m_RotateAnchorAction", LeftInteractionMapCandidates, "Rotate Manipulation"),
+            new ControllerActionBinding("m_DirectionalAnchorRotationAction", LeftInteractionMapCandidates, "Directional Manipulation"),
+            new ControllerActionBinding("m_TranslateAnchorAction", LeftInteractionMapCandidates, "Translate Manipulation"),
+            new ControllerActionBinding("m_ScaleToggleAction", LeftInteractionMapCandidates, "Scale Toggle"),
+            new ControllerActionBinding("m_ScaleDeltaAction", LeftInteractionMapCandidates, "Scale Over Time")
         };
 
         private static readonly ControllerActionBinding[] RightControllerBindings =
         {
-            new ControllerActionBinding("m_PositionAction", "XRI Right", "Position"),
-            new ControllerActionBinding("m_RotationAction", "XRI Right", "Rotation"),
-            new ControllerActionBinding("m_IsTrackedAction", "XRI Right", "Is Tracked"),
-            new ControllerActionBinding("m_TrackingStateAction", "XRI Right", "Tracking State"),
-            new ControllerActionBinding("m_SelectAction", "XRI Right Interaction", "Select"),
-            new ControllerActionBinding("m_SelectActionValue", "XRI Right Interaction", "Select Value"),
-            new ControllerActionBinding("m_ActivateAction", "XRI Right Interaction", "Activate"),
-            new ControllerActionBinding("m_ActivateActionValue", "XRI Right Interaction", "Activate Value"),
-            new ControllerActionBinding("m_UIPressAction", "XRI Right Interaction", "UI Press"),
-            new ControllerActionBinding("m_UIPressActionValue", "XRI Right Interaction", "UI Press Value"),
-            new ControllerActionBinding("m_UIScrollAction", "XRI Right Interaction", "UI Scroll"),
-            new ControllerActionBinding("m_HapticDeviceAction", "XRI Right", "Haptic Device"),
-            new ControllerActionBinding("m_RotateAnchorAction", "XRI Right Interaction", "Rotate Manipulation"),
-            new ControllerActionBinding("m_DirectionalAnchorRotationAction", "XRI Right Interaction", "Directional Manipulation"),
-            new ControllerActionBinding("m_TranslateAnchorAction", "XRI Right Interaction", "Translate Manipulation"),
-            new ControllerActionBinding("m_ScaleToggleAction", "XRI Right Interaction", "Scale Toggle"),
-            new ControllerActionBinding("m_ScaleDeltaAction", "XRI Right Interaction", "Scale Over Time")
+            new ControllerActionBinding("m_PositionAction", RightControllerMapCandidates, "Position"),
+            new ControllerActionBinding("m_RotationAction", RightControllerMapCandidates, "Rotation"),
+            new ControllerActionBinding("m_IsTrackedAction", RightControllerMapCandidates, "Is Tracked"),
+            new ControllerActionBinding("m_TrackingStateAction", RightControllerMapCandidates, "Tracking State"),
+            new ControllerActionBinding("m_SelectAction", RightInteractionMapCandidates, "Select"),
+            new ControllerActionBinding("m_SelectActionValue", RightInteractionMapCandidates, "Select Value"),
+            new ControllerActionBinding("m_ActivateAction", RightInteractionMapCandidates, "Activate"),
+            new ControllerActionBinding("m_ActivateActionValue", RightInteractionMapCandidates, "Activate Value"),
+            new ControllerActionBinding("m_UIPressAction", RightInteractionMapCandidates, "UI Press"),
+            new ControllerActionBinding("m_UIPressActionValue", RightInteractionMapCandidates, "UI Press Value"),
+            new ControllerActionBinding("m_UIScrollAction", RightInteractionMapCandidates, "UI Scroll"),
+            new ControllerActionBinding("m_HapticDeviceAction", RightControllerMapCandidates, "Haptic Device"),
+            new ControllerActionBinding("m_RotateAnchorAction", RightInteractionMapCandidates, "Rotate Manipulation"),
+            new ControllerActionBinding("m_DirectionalAnchorRotationAction", RightInteractionMapCandidates, "Directional Manipulation"),
+            new ControllerActionBinding("m_TranslateAnchorAction", RightInteractionMapCandidates, "Translate Manipulation"),
+            new ControllerActionBinding("m_ScaleToggleAction", RightInteractionMapCandidates, "Scale Toggle"),
+            new ControllerActionBinding("m_ScaleDeltaAction", RightInteractionMapCandidates, "Scale Over Time")
         };
 
         private void ConfigureInputActionManager(Component inputActionManager)
@@ -2000,7 +2012,7 @@ namespace OneClick.VRConverter.Editor
             foreach (var binding in bindings)
             {
                 var cacheKey = $"{(isRightHand ? "Right" : "Left")}_{binding.PropertyName}";
-                if (AssignControllerAction(so, binding.PropertyName, cacheKey, binding.MapName, binding.ActionName))
+                if (AssignControllerAction(so, binding.PropertyName, cacheKey, binding.MapNames, binding.ActionName))
                 {
                     hasChanges = true;
                 }
@@ -2013,7 +2025,7 @@ namespace OneClick.VRConverter.Editor
             }
         }
 
-        private bool AssignControllerAction(SerializedObject controllerSo, string propertyName, string cacheKey, string mapName, string actionName)
+        private bool AssignControllerAction(SerializedObject controllerSo, string propertyName, string cacheKey, IReadOnlyList<string> mapNames, string actionName)
         {
             var property = controllerSo.FindProperty(propertyName);
             if (property == null)
@@ -2021,7 +2033,7 @@ namespace OneClick.VRConverter.Editor
                 return false;
             }
 
-            var reference = GetOrCreateActionReference(cacheKey, mapName, actionName);
+            var reference = GetOrCreateActionReference(cacheKey, mapNames, actionName);
             if (reference == null)
             {
                 return false;
@@ -2045,7 +2057,7 @@ namespace OneClick.VRConverter.Editor
             return changed;
         }
 
-        private InputActionReference GetOrCreateActionReference(string cacheKey, string mapName, string actionName)
+        private InputActionReference GetOrCreateActionReference(string cacheKey, IReadOnlyList<string> mapNames, string actionName)
         {
             if (_actionReferenceCache.TryGetValue(cacheKey, out var cached) && cached != null)
             {
@@ -2063,26 +2075,97 @@ namespace OneClick.VRConverter.Editor
             var reference = AssetDatabase.LoadAssetAtPath<InputActionReference>(assetPath);
             if (reference == null)
             {
-                reference = ScriptableObject.CreateInstance<InputActionReference>();
-                try
-                {
-                    reference.Set(asset, mapName, actionName);
-                }
-                catch (Exception ex)
-                {
-                    Log($"无法创建输入动作引用（{mapName}/{actionName}）：{ex.Message}");
-                    UnityEngine.Object.DestroyImmediate(reference);
-                    return null;
-                }
+                reference = CreateActionReference(cacheKey, assetPath, asset, mapNames, actionName);
+            }
+            else if (!TryConfigureActionReference(reference, asset, mapNames, actionName))
+            {
+                AssetDatabase.DeleteAsset(assetPath);
+                reference = CreateActionReference(cacheKey, assetPath, asset, mapNames, actionName);
+            }
 
-                reference.name = cacheKey;
-                AssetDatabase.CreateAsset(reference, assetPath);
-                AssetDatabase.SaveAssets();
-                Log($"已生成输入动作引用资产：{assetPath}");
+            if (reference == null)
+            {
+                return null;
             }
 
             _actionReferenceCache[cacheKey] = reference;
             return reference;
+        }
+
+        private InputActionReference CreateActionReference(string cacheKey, string assetPath, InputActionAsset sourceAsset, IReadOnlyList<string> mapNames, string actionName)
+        {
+            var reference = ScriptableObject.CreateInstance<InputActionReference>();
+            if (!TryConfigureActionReference(reference, sourceAsset, mapNames, actionName))
+            {
+                UnityEngine.Object.DestroyImmediate(reference);
+                return null;
+            }
+
+            reference.name = cacheKey;
+            AssetDatabase.CreateAsset(reference, assetPath);
+            AssetDatabase.SaveAssets();
+            Log($"已生成输入动作引用资产：{assetPath}");
+            return reference;
+        }
+
+        private bool TryConfigureActionReference(InputActionReference reference, InputActionAsset asset, IReadOnlyList<string> mapNames, string actionName)
+        {
+            if (reference == null || asset == null || string.IsNullOrEmpty(actionName))
+            {
+                return false;
+            }
+
+            var action = FindActionByMapCandidates(asset, mapNames, actionName);
+            if (action == null)
+            {
+                var candidatesLabel = mapNames != null && mapNames.Count > 0
+                    ? string.Join(" / ", mapNames)
+                    : "<未指定 Action Map>";
+                Log($"无法创建输入动作引用（{candidatesLabel}/{actionName}）：请确认“XRI Default Input Actions”中包含该 Action Map。");
+                return false;
+            }
+
+            try
+            {
+                reference.Set(action);
+            }
+            catch (Exception ex)
+            {
+                var mapName = action.actionMap != null ? action.actionMap.name : "<未知 Action Map>";
+                Log($"无法创建输入动作引用（{mapName}/{action.name}）：{ex.Message}");
+                return false;
+            }
+
+            return true;
+        }
+
+        private InputAction FindActionByMapCandidates(InputActionAsset asset, IReadOnlyList<string> mapNames, string actionName)
+        {
+            if (asset == null || string.IsNullOrEmpty(actionName))
+            {
+                return null;
+            }
+
+            if (mapNames != null && mapNames.Count > 0)
+            {
+                foreach (var mapName in mapNames)
+                {
+                    if (string.IsNullOrEmpty(mapName))
+                    {
+                        continue;
+                    }
+
+                    var map = asset.actionMaps.FirstOrDefault(m =>
+                        string.Equals(m.name, mapName, StringComparison.OrdinalIgnoreCase));
+                    var action = map?.FindAction(actionName, throwIfNotFound: false);
+                    if (action != null)
+                    {
+                        return action;
+                    }
+                }
+            }
+
+            return asset.FindAction(actionName, throwIfNotFound: false);
         }
 
         private InputActionAsset LoadDefaultXriInputActionsAsset()
