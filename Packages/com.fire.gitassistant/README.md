@@ -1,8 +1,8 @@
-# Git 助手
+# 版本控制助手
 
 ## 功能概览
 
-- 在 `Tools/Git 助手` 中打开图形界面。
+- 在 `Tools/Version Control Assistant` 中打开图形界面。
 - 左侧树状图显示 `git status --porcelain` 的改动，自动按目录分组。
 - 顶部展示当前分支、远端信息与最近日志。
 - 提供以下操作按钮：

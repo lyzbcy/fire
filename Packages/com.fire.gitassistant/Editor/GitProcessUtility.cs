@@ -63,7 +63,7 @@ namespace Fire.GitAssistant
 
                 if (!result.Success && logOnError)
                 {
-                    UnityEngine.Debug.LogError($"[Git 助手] git {arguments}\n{result.Error}");
+                    UnityEngine.Debug.LogError($"[Version Control Assistant] git {arguments}\n{result.Error}");
                 }
 
                 return result;
@@ -72,7 +72,7 @@ namespace Fire.GitAssistant
             {
                 if (logOnError)
                 {
-                    UnityEngine.Debug.LogError($"[Git 助手] 执行 git {arguments} 失败: {ex}");
+                    UnityEngine.Debug.LogError($"[Version Control Assistant] 执行 git {arguments} 失败: {ex}");
                 }
                 return new GitProcessResult(false, string.Empty, ex.Message);
             }

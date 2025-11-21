@@ -1,18 +1,20 @@
 {
-  "name": "com.fire.gitassistant",
-  "displayName": "Git 助手",
+  "name": "com.fire.vcsassistant",
+  "displayName": "Version Control Assistant",
   "version": "0.1.0",
   "unity": "2021.3",
-  "description": "在Unity编辑器内提供Git状态、提交和推送的可视化工具，支持树状视图查看改动并一键推送至GitHub。",
+  "description": "A visual version control tool for Unity Editor that provides status, commit, and push operations with tree view for tracking changes. Supports integration with version control systems like Git.",
+  "description_zh": "在Unity编辑器内提供版本控制状态、提交和推送的可视化工具，支持树状视图查看改动并一键推送。",
   "keywords": [
-    "git",
     "version-control",
+    "vcs",
     "tool",
-    "workflow"
+    "workflow",
+    "source-control"
   ],
   "type": "tool",
   "author": {
-    "name": "Git 助手",
+    "name": "Version Control Assistant",
     "email": "support@fire-tools.example"
   },
   "dependencies": {}
