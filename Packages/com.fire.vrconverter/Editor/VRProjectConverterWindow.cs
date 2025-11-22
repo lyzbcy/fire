@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
@@ -43,6 +44,7 @@ namespace OneClick.VRConverter.Editor
         private const string GeneratedInputActionsFolder = GeneratedRootFolder + "/InputActions";
         private const string DefaultXriInputActionsGuid = "c348712bda248c246b8c49b3db54643f";
         private const string DeviceSimulatorSettingsTypeName = "UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation.XRDeviceSimulatorSettings";
+        private const string ScriptableSettingsBaseTypeName = "Unity.XR.CoreUtils.ScriptableSettingsBase, Unity.XR.CoreUtils";
         private const string DeviceSimulatorPackageId = "Packages/com.unity.xr.interaction.toolkit";
         private const string StarterAssetsSampleRelativePath = "Samples~/Starter Assets";
         private const string StarterAssetsSampleDisplayName = "Starter Assets";
@@ -91,6 +93,22 @@ namespace OneClick.VRConverter.Editor
                 EnsurePackages || ConfigureProjectSettings || ConvertScene || ConfigureDeviceSimulator;
         }
 
+        /// <summary>
+        /// 存储原 Main Camera 的绑定信息，用于将新的 XR Origin 绑定到原父对象
+        /// </summary>
+        private struct LegacyCameraBindingInfo
+        {
+            public Transform Parent;
+            public Vector3 LocalPosition;
+            public Quaternion LocalRotation;
+            public bool IsValid;
+
+            public static LegacyCameraBindingInfo Empty => new LegacyCameraBindingInfo
+            {
+                IsValid = false
+            };
+        }
+
         private static readonly Dictionary<string, Type> _typeCache = new Dictionary<string, Type>();
         private Vector2 _windowScroll;
         private Vector2 _logScroll;
@@ -121,6 +139,15 @@ namespace OneClick.VRConverter.Editor
         private GUIStyle _headerSubTitleStyle;
         private GUIStyle _stepTitleStyle;
         private GUIStyle _logTextStyle;
+        private GUIStyle _cardStyle;
+        private GUIStyle _primaryButtonStyle;
+        private GUIStyle _secondaryButtonStyle;
+        private GUIStyle _heroCardStyle;
+        private GUIStyle _diagnosticCardStyle;
+        private Texture2D _cardBackgroundTexture;
+        private Texture2D _heroGradientTexture;
+        private Texture2D _diagnosticPositiveTexture;
+        private Texture2D _diagnosticNegativeTexture;
 
         private InputActionAsset _cachedDefaultInputActions;
         private readonly Dictionary<string, InputActionReference> _actionReferenceCache = new Dictionary<string, InputActionReference>();
@@ -173,13 +200,13 @@ namespace OneClick.VRConverter.Editor
                 GUILayout.Height(scrollViewHeight));
             {
                 DrawHeader();
-                EditorGUILayout.Space(4);
+                EditorGUILayout.Space(8);
 
                 DrawModeSwitcher();
-                EditorGUILayout.Space(6);
+                EditorGUILayout.Space(8);
 
                 DrawCompatibilityInsights();
-                EditorGUILayout.Space(8);
+                EditorGUILayout.Space(10);
 
                 if (_uiMode == ConverterMode.Guided)
                 {
@@ -190,7 +217,7 @@ namespace OneClick.VRConverter.Editor
                     DrawProfessionalMode();
                 }
 
-                EditorGUILayout.Space(8);
+                EditorGUILayout.Space(10);
                 DrawLogArea();
             }
             EditorGUILayout.EndScrollView();
@@ -219,28 +246,163 @@ namespace OneClick.VRConverter.Editor
                 return;
             }
 
+            // 创建纹理资源
+            _cardBackgroundTexture ??= CreateCardBackgroundTexture();
+            _heroGradientTexture ??= CreateHeroGradientTexture();
+            _diagnosticPositiveTexture ??= CreateDiagnosticTexture(new Color(0.2f, 0.7f, 0.4f, 0.15f));
+            _diagnosticNegativeTexture ??= CreateDiagnosticTexture(new Color(0.9f, 0.4f, 0.2f, 0.15f));
+
+            // 标题样式 - 苹果风格：更大的字体，更清晰的层次
             _headerTitleStyle = new GUIStyle(EditorStyles.boldLabel)
             {
-                fontSize = 16,
-                alignment = TextAnchor.MiddleLeft
+                fontSize = 20,
+                alignment = TextAnchor.MiddleLeft,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = EditorGUIUtility.isProSkin ? Color.white : new Color(0.1f, 0.1f, 0.1f) },
+                margin = new RectOffset(0, 0, 0, 0)
             };
 
             _headerSubTitleStyle = new GUIStyle(EditorStyles.label)
             {
                 wordWrap = true,
-                fontSize = 11,
-                normal = { textColor = new Color(0.75f, 0.75f, 0.75f) }
+                fontSize = 13,
+                normal = { textColor = EditorGUIUtility.isProSkin ? new Color(0.8f, 0.82f, 0.88f) : new Color(0.45f, 0.45f, 0.45f) },
+                margin = new RectOffset(0, 0, 0, 0)
             };
 
             _stepTitleStyle = new GUIStyle(EditorStyles.boldLabel)
             {
-                fontSize = 12
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = EditorGUIUtility.isProSkin ? new Color(0.95f, 0.95f, 1f) : new Color(0.15f, 0.15f, 0.15f) },
+                margin = new RectOffset(0, 0, 0, 0)
             };
 
             _logTextStyle = new GUIStyle(EditorStyles.textArea)
             {
-                wordWrap = true
+                wordWrap = true,
+                fontSize = 11,
+                padding = new RectOffset(8, 8, 6, 6)
             };
+
+            // 卡片样式 - 苹果风格：更大的内边距，更舒适的间距
+            _cardStyle = new GUIStyle("HelpBox")
+            {
+                padding = new RectOffset(20, 20, 18, 18),
+                margin = new RectOffset(0, 0, 6, 6)
+            };
+            _cardStyle.normal.background = _cardBackgroundTexture;
+
+            // 主按钮样式 - 苹果风格：更优雅的蓝色，更好的状态反馈
+            _primaryButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                fixedHeight = 36,
+                padding = new RectOffset(24, 24, 8, 8),
+                normal = { textColor = Color.white },
+                alignment = TextAnchor.MiddleCenter
+            };
+            // 苹果系统蓝色：RGB(0, 122, 255) -> Unity Color
+            var primaryNormalTex = CreateColorTexture(new Color(0f, 0.478f, 1f));
+            var primaryHoverTex = CreateColorTexture(new Color(0.1f, 0.55f, 1f));
+            var primaryActiveTex = CreateColorTexture(new Color(0f, 0.4f, 0.9f));
+            _primaryButtonStyle.normal.background = primaryNormalTex;
+            _primaryButtonStyle.hover.background = primaryHoverTex;
+            _primaryButtonStyle.active.background = primaryActiveTex;
+
+            // 次按钮样式 - 苹果风格：更柔和的灰色，更好的对比度
+            _secondaryButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 13,
+                fixedHeight = 32,
+                padding = new RectOffset(16, 16, 6, 6),
+                alignment = TextAnchor.MiddleCenter
+            };
+            var secondaryNormalTex = CreateColorTexture(EditorGUIUtility.isProSkin ? new Color(0.25f, 0.25f, 0.3f) : new Color(0.75f, 0.75f, 0.8f));
+            var secondaryHoverTex = CreateColorTexture(EditorGUIUtility.isProSkin ? new Color(0.3f, 0.3f, 0.35f) : new Color(0.8f, 0.8f, 0.85f));
+            var secondaryActiveTex = CreateColorTexture(EditorGUIUtility.isProSkin ? new Color(0.2f, 0.2f, 0.25f) : new Color(0.7f, 0.7f, 0.75f));
+            _secondaryButtonStyle.normal.background = secondaryNormalTex;
+            _secondaryButtonStyle.hover.background = secondaryHoverTex;
+            _secondaryButtonStyle.active.background = secondaryActiveTex;
+            _secondaryButtonStyle.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.9f, 0.9f, 0.95f) : new Color(0.2f, 0.2f, 0.2f);
+
+            // Hero 卡片样式（头部）- 苹果风格：更大的内边距，更优雅的渐变
+            _heroCardStyle = new GUIStyle("HelpBox")
+            {
+                padding = new RectOffset(24, 24, 20, 20),
+                margin = new RectOffset(0, 0, 0, 0)
+            };
+            _heroCardStyle.normal.background = _heroGradientTexture;
+
+            // 诊断卡片样式 - 苹果风格：更舒适的内边距
+            _diagnosticCardStyle = new GUIStyle("box")
+            {
+                padding = new RectOffset(14, 14, 12, 12),
+                margin = new RectOffset(0, 0, 3, 3)
+            };
+        }
+
+        private Texture2D CreateCardBackgroundTexture()
+        {
+            var texture = new Texture2D(1, 1);
+            // 苹果风格：更柔和的背景色，更好的对比度
+            var color = EditorGUIUtility.isProSkin
+                ? new Color(0.20f, 0.22f, 0.26f, 1f)
+                : new Color(0.98f, 0.98f, 0.99f, 1f);
+            texture.SetPixel(0, 0, color);
+            texture.Apply();
+            texture.hideFlags = HideFlags.HideAndDontSave;
+            return texture;
+        }
+
+        private Texture2D CreateHeroGradientTexture()
+        {
+            const int height = 40;
+            var texture = new Texture2D(1, height);
+            // 苹果风格：更优雅的渐变，更柔和的过渡
+            var topColor = EditorGUIUtility.isProSkin
+                ? new Color(0.28f, 0.30f, 0.36f, 1f)
+                : new Color(0.99f, 0.99f, 1f, 1f);
+            var bottomColor = EditorGUIUtility.isProSkin
+                ? new Color(0.22f, 0.24f, 0.30f, 1f)
+                : new Color(0.97f, 0.97f, 0.98f, 1f);
+
+            for (int y = 0; y < height; y++)
+            {
+                float t = y / (height - 1f);
+                // 使用平滑的插值曲线
+                float smoothT = t * t * (3f - 2f * t);
+                texture.SetPixel(0, y, Color.Lerp(topColor, bottomColor, smoothT));
+            }
+
+            texture.Apply();
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.hideFlags = HideFlags.HideAndDontSave;
+            return texture;
+        }
+
+        private Texture2D CreateDiagnosticTexture(Color tint)
+        {
+            var texture = new Texture2D(1, 1);
+            // 苹果风格：更柔和的背景色，更自然的色调融合
+            var baseColor = EditorGUIUtility.isProSkin
+                ? new Color(0.16f, 0.18f, 0.22f, 1f)
+                : new Color(0.96f, 0.96f, 0.97f, 1f);
+            var finalColor = Color.Lerp(baseColor, tint, 0.25f);
+            texture.SetPixel(0, 0, finalColor);
+            texture.Apply();
+            texture.hideFlags = HideFlags.HideAndDontSave;
+            return texture;
+        }
+
+        private Texture2D CreateColorTexture(Color color)
+        {
+            var texture = new Texture2D(1, 1);
+            texture.SetPixel(0, 0, color);
+            texture.Apply();
+            texture.hideFlags = HideFlags.HideAndDontSave;
+            return texture;
         }
 
         private void LoadModePreference()
@@ -272,40 +434,41 @@ namespace OneClick.VRConverter.Editor
         /// </summary>
         private void DrawHeader()
         {
-            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.BeginVertical(_heroCardStyle);
             {
-                EditorGUILayout.Space(4);
+                EditorGUILayout.Space(8);
                 EditorGUILayout.LabelField("一键 VR 项目转换", _headerTitleStyle);
-                EditorGUILayout.Space(2);
+                EditorGUILayout.Space(6);
 
                 EditorGUILayout.LabelField(
                     "面向新手的引导式工具：帮助你将当前项目快速配置为基础 VR 项目，" +
                     "自动处理 XR 包依赖、XR Plug-in Management 配置以及场景中的 XR Rig。",
                     _headerSubTitleStyle);
 
-                EditorGUILayout.Space(4);
+                EditorGUILayout.Space(12);
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     var compiling = EditorApplication.isCompiling;
                     var icon = EditorGUIUtility.IconContent(compiling ? "console.warnicon" : "TestPassed");
                     var msg = compiling
-                        ? "Unity 正在导入或编译脚本，请等待完成后再执行“第 2 步”或“一键执行”操作。"
-                        : "当前状态良好，可以直接执行“一键执行所有步骤（推荐）”。";
+                        ? "Unity 正在导入或编译脚本，请等待完成后再执行\"第 2 步\"或\"一键执行\"操作。"
+                        : "当前状态良好，可以直接执行\"一键执行所有步骤（推荐）\"。";
 
-                    EditorGUILayout.LabelField(icon, GUILayout.Width(20), GUILayout.Height(20));
+                    EditorGUILayout.LabelField(icon, GUILayout.Width(24), GUILayout.Height(24));
+                    EditorGUILayout.Space(8);
                     EditorGUILayout.LabelField(msg, EditorStyles.wordWrappedMiniLabel);
                 }
-                EditorGUILayout.Space(2);
+                EditorGUILayout.Space(6);
             }
             EditorGUILayout.EndVertical();
         }
 
         private void DrawModeSwitcher()
         {
-            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.BeginVertical(_cardStyle);
             EditorGUILayout.LabelField("模式选择", _stepTitleStyle);
-            EditorGUILayout.Space(2);
+            EditorGUILayout.Space(10);
 
             var contents = new[]
             {
@@ -313,17 +476,17 @@ namespace OneClick.VRConverter.Editor
                 new GUIContent("专业模式")
             };
 
-            int selected = GUILayout.Toolbar((int)_uiMode, contents);
+            int selected = GUILayout.Toolbar((int)_uiMode, contents, GUILayout.Height(32));
             if (selected != (int)_uiMode)
             {
                 _uiMode = (ConverterMode)selected;
                 SaveModePreference();
             }
 
+            EditorGUILayout.Space(8);
             var desc = _uiMode == ConverterMode.Guided
-                ? "保持“一键执行”体验，适合第一次接触 VR 项目的同学。"
+                ? "保持\"一键执行\"体验，适合第一次接触 VR 项目的同学。"
                 : "自定义执行步骤、目标平台与场景策略，满足不同团队流程。";
-            EditorGUILayout.Space(2);
             EditorGUILayout.LabelField(desc, EditorStyles.wordWrappedMiniLabel);
             EditorGUILayout.EndVertical();
         }
@@ -331,9 +494,9 @@ namespace OneClick.VRConverter.Editor
         private void DrawCompatibilityInsights()
         {
             var diagnostics = GetProjectDiagnostics();
-            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.BeginVertical(_cardStyle);
             EditorGUILayout.LabelField("项目体检 & 兼容性建议", _stepTitleStyle);
-            EditorGUILayout.Space(2);
+            EditorGUILayout.Space(10);
 
             Action gitAssistantAction = diagnostics.HasGitAssistant
                 ? null
@@ -374,7 +537,7 @@ namespace OneClick.VRConverter.Editor
                     DrawDiagnosticRow(rows[index].Title, rows[index].Value, rows[index].Positive, rows[index].Hint, rows[index].OnClick);
                     if (columns > 1 && col == 0)
                     {
-                        GUILayout.Space(6);
+                        GUILayout.Space(8);
                     }
                 }
                 EditorGUILayout.EndHorizontal();
@@ -403,19 +566,27 @@ namespace OneClick.VRConverter.Editor
 
         private void DrawDiagnosticRow(string title, string value, bool positive, string hint, Action onClick)
         {
-            using (new EditorGUILayout.VerticalScope("box"))
+            var cardBg = positive ? _diagnosticPositiveTexture : _diagnosticNegativeTexture;
+            var originalBg = _diagnosticCardStyle.normal.background;
+            _diagnosticCardStyle.normal.background = cardBg;
+
+            using (new EditorGUILayout.VerticalScope(_diagnosticCardStyle))
             {
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    EditorGUILayout.LabelField(title, GUILayout.Width(140));
+                    EditorGUILayout.LabelField(title, EditorStyles.boldLabel, GUILayout.Width(140));
                     var prevColor = GUI.contentColor;
-                    GUI.contentColor = positive ? new Color(0.2f, 0.7f, 0.4f) : new Color(0.9f, 0.4f, 0.2f);
+                    // 苹果风格：更柔和的成功/警告颜色
+                    GUI.contentColor = positive ? new Color(0.15f, 0.7f, 0.4f) : new Color(0.9f, 0.5f, 0.3f);
                     EditorGUILayout.LabelField(value, EditorStyles.boldLabel);
                     GUI.contentColor = prevColor;
                 }
 
+                EditorGUILayout.Space(4);
                 EditorGUILayout.LabelField(hint, EditorStyles.wordWrappedMiniLabel);
             }
+
+            _diagnosticCardStyle.normal.background = originalBg;
 
             if (onClick != null)
             {
@@ -441,11 +612,11 @@ namespace OneClick.VRConverter.Editor
                     using (new EditorGUILayout.VerticalScope(GUILayout.ExpandWidth(true)))
                     {
                         DrawQuickActions();
-                        EditorGUILayout.Space(8);
+                        EditorGUILayout.Space(10);
                         DrawStepCards();
                     }
 
-                    GUILayout.Space(8);
+                    GUILayout.Space(10);
 
                     using (new EditorGUILayout.VerticalScope(GUILayout.MaxWidth(320)))
                     {
@@ -457,28 +628,29 @@ namespace OneClick.VRConverter.Editor
             else
             {
                 DrawQuickActions();
-                EditorGUILayout.Space(8);
+                EditorGUILayout.Space(10);
                 DrawStepCards();
-                EditorGUILayout.Space(8);
+                EditorGUILayout.Space(10);
                 DrawGitAssistantSupportCard();
             }
         }
 
         private void DrawProfessionalMode()
         {
-            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.BeginVertical(_cardStyle);
             EditorGUILayout.LabelField("专业模式计划", _stepTitleStyle);
-            EditorGUILayout.Space(2);
+            EditorGUILayout.Space(10);
             EditorGUILayout.LabelField("自定义执行步骤与目标平台，适配已有项目结构。", EditorStyles.wordWrappedMiniLabel);
-            EditorGUILayout.Space(4);
+            EditorGUILayout.Space(12);
 
             _proIncludePackages = EditorGUILayout.ToggleLeft("XR 依赖检查 / 安装", _proIncludePackages);
             _proIncludeProjectSettings = EditorGUILayout.ToggleLeft("Project Settings：XR Plug-in 配置", _proIncludeProjectSettings);
             _proIncludeSceneConversion = EditorGUILayout.ToggleLeft("场景转换（XR Rig / VRRig）", _proIncludeSceneConversion);
             _proIncludeDeviceSimulator = EditorGUILayout.ToggleLeft("配置 VR 模拟设备（XR Device Simulator）", _proIncludeDeviceSimulator);
 
-            EditorGUILayout.Space(6);
+            EditorGUILayout.Space(10);
             EditorGUILayout.LabelField("目标平台", _stepTitleStyle);
+            EditorGUILayout.Space(4);
             foreach (var group in TargetGroups)
             {
                 bool current = _proTargetGroupToggles.TryGetValue(group, out var enabled) ? enabled : true;
@@ -487,10 +659,11 @@ namespace OneClick.VRConverter.Editor
             }
             if (GetProfessionalTargetGroups().Length == 0)
             {
+                EditorGUILayout.Space(4);
                 EditorGUILayout.HelpBox("未选择目标平台时将回退到默认（Standalone + Android）。", MessageType.Info);
             }
 
-            EditorGUILayout.Space(6);
+            EditorGUILayout.Space(10);
             using (new EditorGUI.DisabledScope(!_proIncludeSceneConversion))
             {
                 EditorGUILayout.LabelField("场景转换策略", _stepTitleStyle);
@@ -498,14 +671,14 @@ namespace OneClick.VRConverter.Editor
                 _proPreserveLegacyMainCamera = EditorGUILayout.ToggleLeft("保留现有 Main Camera（不强制禁用）", _proPreserveLegacyMainCamera);
             }
 
-            EditorGUILayout.Space(6);
-            if (GUILayout.Button("执行专业模式计划", GUILayout.Height(28)))
+            EditorGUILayout.Space(12);
+            if (GUILayout.Button("执行专业模式计划", _primaryButtonStyle))
             {
                 RunProfessionalPlan();
             }
             EditorGUILayout.EndVertical();
 
-            EditorGUILayout.Space(8);
+            EditorGUILayout.Space(10);
             DrawGitAssistantSupportCard();
         }
 
@@ -514,16 +687,16 @@ namespace OneClick.VRConverter.Editor
         /// </summary>
         private void DrawQuickActions()
         {
-            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.BeginVertical(_cardStyle);
             EditorGUILayout.LabelField("快速开始（推荐）", _stepTitleStyle);
-            EditorGUILayout.Space(2);
+            EditorGUILayout.Space(10);
 
             EditorGUILayout.LabelField(
                 "适合第一次接触 VR 项目的同学：点击一次即可按顺序执行所有必要步骤。" +
-                "如果中途需要重新导入包，可以稍后再单独执行“第 2 步”。",
+                "如果中途需要重新导入包，可以稍后再单独执行\"第 2 步\"。",
                 EditorStyles.wordWrappedMiniLabel);
 
-            EditorGUILayout.Space(4);
+            EditorGUILayout.Space(12);
 
             var content = new GUIContent(
                 "一键执行所有步骤（推荐）",
@@ -532,13 +705,13 @@ namespace OneClick.VRConverter.Editor
                 "2. 自动配置 XR Plug-in Management（Standalone + Android 启用 OpenXR）；\n" +
                 "3. 将当前场景转换为 VR 场景并创建/更新 XR Rig。");
 
-            if (GUILayout.Button(content, GUILayout.Height(28)))
+            if (GUILayout.Button(content, _primaryButtonStyle))
             {
                 RunAllSteps();
             }
 
-            EditorGUILayout.Space(2);
-            EditorGUILayout.LabelField("如果你不熟悉 XR 配置，推荐优先使用上面的“一键执行”按钮。", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.Space(8);
+            EditorGUILayout.LabelField("如果你不熟悉 XR 配置，推荐优先使用上面的\"一键执行\"按钮。", EditorStyles.wordWrappedMiniLabel);
             EditorGUILayout.EndVertical();
         }
 
@@ -558,11 +731,11 @@ namespace OneClick.VRConverter.Editor
 
             if (stackCards)
             {
-                EditorGUILayout.Space(6);
+                EditorGUILayout.Space(8);
             }
             else
             {
-                GUILayout.Space(6);
+                GUILayout.Space(8);
             }
 
             DrawStep2Card();
@@ -575,22 +748,22 @@ namespace OneClick.VRConverter.Editor
 
         private void DrawStep1Card()
         {
-            EditorGUILayout.BeginVertical("Box");
+            EditorGUILayout.BeginVertical(_cardStyle);
             EditorGUILayout.LabelField("第 1 步：准备 XR 依赖包", _stepTitleStyle);
-            EditorGUILayout.Space(2);
+            EditorGUILayout.Space(10);
             EditorGUILayout.LabelField(
                 "在 Packages/manifest.json 中检查并安装如下 XR 相关包：\n" +
                 "- XR Management\n- OpenXR\n- XR Interaction Toolkit\n\n" +
                 "适合刚将普通项目升级为 VR 项目时使用。",
                 EditorStyles.wordWrappedMiniLabel);
 
-            EditorGUILayout.Space(4);
+            EditorGUILayout.Space(12);
 
             var btnStep1 = new GUIContent(
                 "执行第 1 步",
                 "仅执行 XR 依赖检查和安装，不会修改 XR 设置或场景。" +
                 "\n建议在看到 Unity 编译完成后再继续执行第 2 步。");
-            if (GUILayout.Button(btnStep1, GUILayout.Height(24)))
+            if (GUILayout.Button(btnStep1, _secondaryButtonStyle))
             {
                 EnsureXrPackages();
             }
@@ -600,16 +773,16 @@ namespace OneClick.VRConverter.Editor
 
         private void DrawStep2Card()
         {
-            EditorGUILayout.BeginVertical("Box");
+            EditorGUILayout.BeginVertical(_cardStyle);
             EditorGUILayout.LabelField("第 2 步：配置项目 & 场景", _stepTitleStyle);
-            EditorGUILayout.Space(2);
+            EditorGUILayout.Space(10);
             EditorGUILayout.LabelField(
                 "为 Standalone / Android 自动启用 OpenXR Loader，" +
                 "并在当前场景内创建或更新 XR Origin（如可用）或基础 VRRig。\n\n" +
                 "若你已经手动导入好 XR 包，可直接从第 2 步开始。",
                 EditorStyles.wordWrappedMiniLabel);
 
-            EditorGUILayout.Space(4);
+            EditorGUILayout.Space(12);
 
             using (new EditorGUI.DisabledScope(EditorApplication.isCompiling))
             {
@@ -619,7 +792,7 @@ namespace OneClick.VRConverter.Editor
                         ? "当前 Unity 正在编译，暂不可执行。请等待编译完成后再点击。"
                         : "配置 XRGeneralSettings / XRManagerSettings，并在当前场景中创建或更新 VR Rig。");
 
-                if (GUILayout.Button(btnStep2, GUILayout.Height(24)))
+                if (GUILayout.Button(btnStep2, _secondaryButtonStyle))
                 {
                     var plan = new ConversionPlan
                     {
@@ -631,7 +804,7 @@ namespace OneClick.VRConverter.Editor
                         RigStrategy = RigStrategy.Auto,
                         DisableLegacyCamera = true
                     };
-                    ExecuteConversionPlan(plan, "“第 2 步：配置项目 & 场景”");
+                    ExecuteConversionPlan(plan, "\"第 2 步：配置项目 & 场景\"");
                 }
             }
 
@@ -674,9 +847,9 @@ namespace OneClick.VRConverter.Editor
 
         private void DrawGitAssistantSupportCard()
         {
-            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.BeginVertical(_cardStyle);
             EditorGUILayout.LabelField("版本控制助手联动（备份 & 回滚）", _stepTitleStyle);
-            EditorGUILayout.Space(2);
+            EditorGUILayout.Space(10);
 
             var gitAvailable = IsGitAssistantInstalled();
             var description = gitAvailable
@@ -684,12 +857,12 @@ namespace OneClick.VRConverter.Editor
                 : "尚未检测到版本控制助手。建议先在 Package Manager 中导入 com.fire.gitassistant，以便执行自动备份与回滚。";
             EditorGUILayout.LabelField(description, EditorStyles.wordWrappedMiniLabel);
 
-            EditorGUILayout.Space(4);
+            EditorGUILayout.Space(12);
             using (new EditorGUILayout.HorizontalScope())
             {
                 using (new EditorGUI.DisabledScope(!gitAvailable))
                 {
-                    if (GUILayout.Button("打开版本控制助手", GUILayout.Height(24)))
+                    if (GUILayout.Button("打开版本控制助手", _secondaryButtonStyle))
                     {
                         if (!OpenGitAssistantWindow())
                         {
@@ -697,27 +870,28 @@ namespace OneClick.VRConverter.Editor
                         }
                     }
 
-                    if (GUILayout.Button("使用版本控制助手快速备份", GUILayout.Height(24)))
+                    GUILayout.Space(8);
+                    if (GUILayout.Button("使用版本控制助手快速备份", _secondaryButtonStyle))
                     {
                         TriggerQuickBackupFlow();
                     }
                 }
             }
 
-            EditorGUILayout.Space(2);
+            EditorGUILayout.Space(10);
 
             bool canRollback = gitAvailable && _lastConversionSucceeded && !string.IsNullOrEmpty(_lastBaselineCommitHash);
             using (new EditorGUILayout.HorizontalScope())
             {
                 using (new EditorGUI.DisabledScope(!canRollback))
                 {
-                    if (GUILayout.Button("回滚到转换前版本", GUILayout.Height(24)))
+                    if (GUILayout.Button("回滚到转换前版本", _secondaryButtonStyle))
                     {
                         AttemptRollbackToBaseline();
                     }
                 }
 
-                GUILayout.Space(6);
+                GUILayout.Space(8);
                 var baselineLabel = canRollback
                     ? $"记录的提交：{GetShortHash(_lastBaselineCommitHash)}"
                     : "尚未记录可回滚的提交";
@@ -737,9 +911,9 @@ namespace OneClick.VRConverter.Editor
         /// </summary>
         private void DrawLogArea()
         {
-            EditorGUILayout.BeginVertical("HelpBox");
+            EditorGUILayout.BeginVertical(_cardStyle);
             EditorGUILayout.LabelField("执行日志（可帮助排查问题）", _stepTitleStyle);
-            EditorGUILayout.Space(2);
+            EditorGUILayout.Space(10);
             EditorGUILayout.LabelField(
                 "这里会实时显示每一步执行情况，例如：\n" +
                 "- 是否成功安装 XR 相关包；\n" +
@@ -748,7 +922,7 @@ namespace OneClick.VRConverter.Editor
                 "当你遇到问题时，可以先查看此处日志再处理。",
                 EditorStyles.wordWrappedMiniLabel);
 
-            EditorGUILayout.Space(4);
+            EditorGUILayout.Space(8);
 
             _logScroll = EditorGUILayout.BeginScrollView(_logScroll, GUILayout.MinHeight(140));
             EditorGUILayout.TextArea(_log, _logTextStyle, GUILayout.ExpandHeight(true));
@@ -1045,8 +1219,36 @@ namespace OneClick.VRConverter.Editor
                 return false;
             }
 
-            var instanceProp = settingsType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
-            settings = instanceProp?.GetValue(null) as ScriptableObject;
+            var instanceProp = settingsType.GetProperty(
+                "Instance",
+                BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+            if (instanceProp != null)
+            {
+                settings = instanceProp.GetValue(null) as ScriptableObject;
+            }
+
+            if (settings == null)
+            {
+                var scriptableSettingsBaseType = FindType(ScriptableSettingsBaseTypeName);
+                var getInstanceMethod = scriptableSettingsBaseType?.GetMethod(
+                    "GetInstanceByType",
+                    BindingFlags.Public | BindingFlags.Static);
+                if (getInstanceMethod != null)
+                {
+                    try
+                    {
+                        settings = getInstanceMethod.Invoke(null, new object[] { settingsType }) as ScriptableObject;
+                    }
+                    catch (Exception ex)
+                    {
+                        if (logOnFailure)
+                        {
+                            Log($"无法初始化 XR Device Simulator 设置：{ex.Message}");
+                        }
+                    }
+                }
+            }
+
             if (settings == null)
             {
                 if (logOnFailure)
@@ -1207,9 +1409,10 @@ namespace OneClick.VRConverter.Editor
                 return false;
             }
 
+            LegacyCameraBindingInfo bindingInfo = LegacyCameraBindingInfo.Empty;
             if (disableLegacyMainCamera)
             {
-                DisableLegacyMainCamera();
+                bindingInfo = DisableLegacyMainCamera();
             }
             else
             {
@@ -1219,29 +1422,29 @@ namespace OneClick.VRConverter.Editor
             switch (strategy)
             {
                 case RigStrategy.OnlyUpdateExistingXrOrigin:
-                    if (TryCreateOrUpdateXrOriginRig(createIfMissing: false))
+                    if (TryCreateOrUpdateXrOriginRig(createIfMissing: false, bindingInfo: bindingInfo))
                     {
                         Log("已更新场景中的 XR Origin。");
                         return true;
                     }
 
-                    Log("未找到现有 XR Origin，且策略为“仅更新”，未做额外改动。");
+                    Log("未找到现有 XR Origin，且策略为\"仅更新\"，未做额外改动。");
                     return false;
                 case RigStrategy.ForceFallbackRig:
-                    CreateFallbackVrRig();
+                    CreateFallbackVrRig(bindingInfo);
                     return true;
                 default:
                     break;
             }
 
-            if (TryCreateOrUpdateXrOriginRig())
+            if (TryCreateOrUpdateXrOriginRig(bindingInfo: bindingInfo))
             {
                 Log("XR Origin (XR Interaction Toolkit) 已创建/更新。");
                 return true;
             }
 
             Log("XR Interaction Toolkit 或 XR Core Utils 不可用，使用基础 VRRig。");
-            CreateFallbackVrRig();
+            CreateFallbackVrRig(bindingInfo);
             return true;
         }
 
@@ -1253,6 +1456,24 @@ namespace OneClick.VRConverter.Editor
             {
                 Log($"已记录转换前的 Git 提交：{_lastBaselineCommitHash}");
             }
+            
+            // 显示用户友好的成功提示对话框
+            string successMessage = "🎉 VR 转换成功！\n\n" +
+                "您的项目已成功转换为 VR 项目。\n\n" +
+                "主要变更：\n" +
+                "• XR Origin 已添加到场景\n" +
+                "• 左右手控制器已配置\n" +
+                "• 项目设置已更新为 VR 模式\n" +
+                "• 手部追踪同步已优化\n\n";
+            
+            if (!string.IsNullOrEmpty(_lastBaselineCommitHash))
+            {
+                successMessage += $"已记录转换前的 Git 提交：{_lastBaselineCommitHash}\n\n";
+            }
+            
+            successMessage += "提示：可以使用窗口下方的 Git 按钮创建备份或回滚。";
+            
+            EditorUtility.DisplayDialog("转换成功", successMessage, "好的，我知道了");
         }
 
         #region XR Project Settings helpers
@@ -1437,7 +1658,7 @@ namespace OneClick.VRConverter.Editor
 
         #region Scene conversion helpers
 
-        private bool TryCreateOrUpdateXrOriginRig(bool createIfMissing = true)
+        private bool TryCreateOrUpdateXrOriginRig(bool createIfMissing = true, LegacyCameraBindingInfo bindingInfo = default)
         {
             var xrOriginType = FindType(XrOriginTypeName);
             if (xrOriginType == null)
@@ -1449,6 +1670,11 @@ namespace OneClick.VRConverter.Editor
             if (existingOrigin != null)
             {
                 EnsureOriginStructure(existingOrigin.gameObject);
+                // 如果已有 XR Origin 但原 Main Camera 有父对象，尝试绑定
+                if (bindingInfo.IsValid && bindingInfo.Parent != null && existingOrigin.transform.parent != bindingInfo.Parent)
+                {
+                    ApplyBindingInfo(existingOrigin.gameObject, bindingInfo);
+                }
                 return true;
             }
 
@@ -1459,6 +1685,10 @@ namespace OneClick.VRConverter.Editor
 
             var originGo = new GameObject("XR Origin (Action Based)");
             Undo.RegisterCreatedObjectUndo(originGo, "Create XR Origin");
+            
+            // 应用原 Main Camera 的绑定信息
+            ApplyBindingInfo(originGo, bindingInfo);
+            
             var originComponent = originGo.AddComponent(xrOriginType);
 
             BuildOriginHierarchy(originGo, originComponent);
@@ -1542,15 +1772,35 @@ namespace OneClick.VRConverter.Editor
             if (controllerGo == null) return;
 
             var controller = TryAddComponent(controllerGo, ActionBasedControllerTypeName);
-            TryAddComponent(controllerGo, XrRayInteractorTypeName);
+            var rayInteractor = TryAddComponent(controllerGo, XrRayInteractorTypeName);
             ConfigureActionBasedController(controller, isRightHand);
 
+            // 优化 LineRenderer 配置，确保与相机同步
             if (controllerGo.GetComponent<LineRenderer>() == null)
             {
                 var lr = controllerGo.AddComponent<LineRenderer>();
                 lr.positionCount = 2;
                 lr.useWorldSpace = false;
                 lr.widthMultiplier = 0.005f;
+            }
+
+            // 配置 XR Ray Interactor 的同步参数，确保手部追踪与相机同步
+            if (rayInteractor != null)
+            {
+                var raySo = new SerializedObject(rayInteractor);
+                
+                // 保持 XR Ray Interactor 的默认设置，不进行修改
+                // 让 Unity 的 XR Ray Interactor 自己处理同步逻辑
+                
+                raySo.ApplyModifiedPropertiesWithoutUndo();
+                
+                // 尝试添加同步优化脚本（如果存在）
+                var syncScriptType = Type.GetType("VRHandTrackingSync, Assembly-CSharp");
+                if (syncScriptType != null && controllerGo.GetComponent(syncScriptType) == null)
+                {
+                    controllerGo.AddComponent(syncScriptType);
+                    Log($"已为 {controllerGo.name} 添加手部追踪同步优化脚本。");
+                }
             }
 
             if (controller == null) return;
@@ -1564,18 +1814,27 @@ namespace OneClick.VRConverter.Editor
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private void CreateFallbackVrRig()
+        private void CreateFallbackVrRig(LegacyCameraBindingInfo bindingInfo = default)
         {
             var existingRig = GameObject.Find("VRRig");
             if (existingRig == null)
             {
                 existingRig = new GameObject("VRRig");
                 Undo.RegisterCreatedObjectUndo(existingRig, "Create VRRig");
+                
+                // 应用原 Main Camera 的绑定信息
+                ApplyBindingInfo(existingRig, bindingInfo);
+                
                 Log("已创建 VRRig 根对象。");
             }
             else
             {
                 Log("场景中已存在 VRRig，对其进行复用/更新。");
+                // 如果原 Main Camera 有父对象且当前 VRRig 没有绑定，尝试绑定
+                if (bindingInfo.IsValid && bindingInfo.Parent != null && existingRig.transform.parent != bindingInfo.Parent)
+                {
+                    ApplyBindingInfo(existingRig, bindingInfo);
+                }
             }
 
             var cameraOffset = existingRig.transform.Find("CameraOffset")?.gameObject ?? CreateChild(existingRig.transform, "CameraOffset");
@@ -1600,17 +1859,56 @@ namespace OneClick.VRConverter.Editor
             return go;
         }
 
-        private void DisableLegacyMainCamera()
+        /// <summary>
+        /// 将新的 VR Rig 绑定到原 Main Camera 的父对象，并保持相对位置和旋转
+        /// </summary>
+        private void ApplyBindingInfo(GameObject targetGo, LegacyCameraBindingInfo bindingInfo)
+        {
+            if (!bindingInfo.IsValid || bindingInfo.Parent == null)
+            {
+                return;
+            }
+
+            // 将 XR Origin/VRRig 设置为原 Main Camera 的父对象的子对象
+            targetGo.transform.SetParent(bindingInfo.Parent, false);
+            
+            // 保持原 Main Camera 的本地位置和旋转（相对于父对象）
+            // 注意：这里使用原 Main Camera 的本地变换，因为 XR Origin 的 Camera Offset 会处理 VR 相关的偏移
+            targetGo.transform.localPosition = bindingInfo.LocalPosition;
+            targetGo.transform.localRotation = bindingInfo.LocalRotation;
+            
+            Log($"已将 {targetGo.name} 绑定到原主相机的父对象：{bindingInfo.Parent.name}，并保持原位置和旋转。");
+        }
+
+        /// <summary>
+        /// 禁用原 Main Camera 并返回其绑定信息，用于后续将 XR Origin 绑定到原父对象
+        /// </summary>
+        private LegacyCameraBindingInfo DisableLegacyMainCamera()
         {
             var mainCam = Camera.main;
             if (mainCam == null)
             {
                 Log("未找到标签为 MainCamera 的原主相机。");
-                return;
+                return LegacyCameraBindingInfo.Empty;
             }
+
+            var bindingInfo = new LegacyCameraBindingInfo
+            {
+                Parent = mainCam.transform.parent,
+                LocalPosition = mainCam.transform.localPosition,
+                LocalRotation = mainCam.transform.localRotation,
+                IsValid = true
+            };
 
             mainCam.gameObject.SetActive(false);
             Log($"已禁用原主相机：{mainCam.gameObject.name}");
+            
+            if (bindingInfo.Parent != null)
+            {
+                Log($"检测到原主相机绑定在：{bindingInfo.Parent.name}，新的 XR Origin 将继承此绑定关系。");
+            }
+
+            return bindingInfo;
         }
 
         private Component TryAddComponent(GameObject target, string typeName)
@@ -1887,20 +2185,23 @@ namespace OneClick.VRConverter.Editor
         {
             public string PropertyName;
             public IReadOnlyList<string> MapNames;
-            public string ActionName;
+            public IReadOnlyList<string> ActionNames;
 
             public ControllerActionBinding(string propertyName, string mapName, string actionName)
+                : this(propertyName, new[] { mapName }, new[] { actionName })
             {
-                PropertyName = propertyName;
-                MapNames = new[] { mapName };
-                ActionName = actionName;
             }
 
             public ControllerActionBinding(string propertyName, IReadOnlyList<string> mapNames, string actionName)
+                : this(propertyName, mapNames, new[] { actionName })
+            {
+            }
+
+            public ControllerActionBinding(string propertyName, IReadOnlyList<string> mapNames, IReadOnlyList<string> actionNames)
             {
                 PropertyName = propertyName;
                 MapNames = mapNames;
-                ActionName = actionName;
+                ActionNames = actionNames;
             }
         }
 
@@ -1908,6 +2209,41 @@ namespace OneClick.VRConverter.Editor
         private static readonly string[] LeftInteractionMapCandidates = { "XRI Left Interaction", "XRI LeftHand Interaction" };
         private static readonly string[] RightControllerMapCandidates = { "XRI Right", "XRI RightHand" };
         private static readonly string[] RightInteractionMapCandidates = { "XRI Right Interaction", "XRI RightHand Interaction" };
+
+        private static bool IsMatchingActionMapName(string actualName, string candidateName)
+        {
+            if (string.IsNullOrEmpty(actualName) || string.IsNullOrEmpty(candidateName))
+            {
+                return false;
+            }
+
+            if (string.Equals(actualName, candidateName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return string.Equals(NormalizeActionMapName(actualName), NormalizeActionMapName(candidateName), StringComparison.Ordinal);
+        }
+
+        private static string NormalizeActionMapName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return string.Empty;
+            }
+
+            var builder = new StringBuilder(name.Length);
+            foreach (var ch in name)
+            {
+                if (!char.IsWhiteSpace(ch))
+                {
+                    builder.Append(char.ToLowerInvariant(ch));
+                }
+            }
+
+            builder.Replace("hand", string.Empty);
+            return builder.ToString();
+        }
 
         private static readonly ControllerActionBinding[] LeftControllerBindings =
         {
@@ -1923,11 +2259,11 @@ namespace OneClick.VRConverter.Editor
             new ControllerActionBinding("m_UIPressActionValue", LeftInteractionMapCandidates, "UI Press Value"),
             new ControllerActionBinding("m_UIScrollAction", LeftInteractionMapCandidates, "UI Scroll"),
             new ControllerActionBinding("m_HapticDeviceAction", LeftControllerMapCandidates, "Haptic Device"),
-            new ControllerActionBinding("m_RotateAnchorAction", LeftInteractionMapCandidates, "Rotate Manipulation"),
-            new ControllerActionBinding("m_DirectionalAnchorRotationAction", LeftInteractionMapCandidates, "Directional Manipulation"),
-            new ControllerActionBinding("m_TranslateAnchorAction", LeftInteractionMapCandidates, "Translate Manipulation"),
+            new ControllerActionBinding("m_RotateAnchorAction", LeftInteractionMapCandidates, new[] { "Rotate Manipulation", "Rotate Anchor" }),
+            new ControllerActionBinding("m_DirectionalAnchorRotationAction", LeftInteractionMapCandidates, new[] { "Directional Manipulation", "Directional Anchor Rotation" }),
+            new ControllerActionBinding("m_TranslateAnchorAction", LeftInteractionMapCandidates, new[] { "Translate Manipulation", "Translate Anchor" }),
             new ControllerActionBinding("m_ScaleToggleAction", LeftInteractionMapCandidates, "Scale Toggle"),
-            new ControllerActionBinding("m_ScaleDeltaAction", LeftInteractionMapCandidates, "Scale Over Time")
+            new ControllerActionBinding("m_ScaleDeltaAction", LeftInteractionMapCandidates, new[] { "Scale Over Time", "Scale Delta" })
         };
 
         private static readonly ControllerActionBinding[] RightControllerBindings =
@@ -1944,11 +2280,11 @@ namespace OneClick.VRConverter.Editor
             new ControllerActionBinding("m_UIPressActionValue", RightInteractionMapCandidates, "UI Press Value"),
             new ControllerActionBinding("m_UIScrollAction", RightInteractionMapCandidates, "UI Scroll"),
             new ControllerActionBinding("m_HapticDeviceAction", RightControllerMapCandidates, "Haptic Device"),
-            new ControllerActionBinding("m_RotateAnchorAction", RightInteractionMapCandidates, "Rotate Manipulation"),
-            new ControllerActionBinding("m_DirectionalAnchorRotationAction", RightInteractionMapCandidates, "Directional Manipulation"),
-            new ControllerActionBinding("m_TranslateAnchorAction", RightInteractionMapCandidates, "Translate Manipulation"),
+            new ControllerActionBinding("m_RotateAnchorAction", RightInteractionMapCandidates, new[] { "Rotate Manipulation", "Rotate Anchor" }),
+            new ControllerActionBinding("m_DirectionalAnchorRotationAction", RightInteractionMapCandidates, new[] { "Directional Manipulation", "Directional Anchor Rotation" }),
+            new ControllerActionBinding("m_TranslateAnchorAction", RightInteractionMapCandidates, new[] { "Translate Manipulation", "Translate Anchor" }),
             new ControllerActionBinding("m_ScaleToggleAction", RightInteractionMapCandidates, "Scale Toggle"),
-            new ControllerActionBinding("m_ScaleDeltaAction", RightInteractionMapCandidates, "Scale Over Time")
+            new ControllerActionBinding("m_ScaleDeltaAction", RightInteractionMapCandidates, new[] { "Scale Over Time", "Scale Delta" })
         };
 
         private void ConfigureInputActionManager(Component inputActionManager)
@@ -2012,7 +2348,7 @@ namespace OneClick.VRConverter.Editor
             foreach (var binding in bindings)
             {
                 var cacheKey = $"{(isRightHand ? "Right" : "Left")}_{binding.PropertyName}";
-                if (AssignControllerAction(so, binding.PropertyName, cacheKey, binding.MapNames, binding.ActionName))
+                if (AssignControllerAction(so, binding.PropertyName, cacheKey, binding.MapNames, binding.ActionNames))
                 {
                     hasChanges = true;
                 }
@@ -2025,7 +2361,7 @@ namespace OneClick.VRConverter.Editor
             }
         }
 
-        private bool AssignControllerAction(SerializedObject controllerSo, string propertyName, string cacheKey, IReadOnlyList<string> mapNames, string actionName)
+        private bool AssignControllerAction(SerializedObject controllerSo, string propertyName, string cacheKey, IReadOnlyList<string> mapNames, IReadOnlyList<string> actionNames)
         {
             var property = controllerSo.FindProperty(propertyName);
             if (property == null)
@@ -2033,7 +2369,7 @@ namespace OneClick.VRConverter.Editor
                 return false;
             }
 
-            var reference = GetOrCreateActionReference(cacheKey, mapNames, actionName);
+            var reference = GetOrCreateActionReference(cacheKey, mapNames, actionNames);
             if (reference == null)
             {
                 return false;
@@ -2057,7 +2393,7 @@ namespace OneClick.VRConverter.Editor
             return changed;
         }
 
-        private InputActionReference GetOrCreateActionReference(string cacheKey, IReadOnlyList<string> mapNames, string actionName)
+        private InputActionReference GetOrCreateActionReference(string cacheKey, IReadOnlyList<string> mapNames, IReadOnlyList<string> actionNames)
         {
             if (_actionReferenceCache.TryGetValue(cacheKey, out var cached) && cached != null)
             {
@@ -2075,12 +2411,12 @@ namespace OneClick.VRConverter.Editor
             var reference = AssetDatabase.LoadAssetAtPath<InputActionReference>(assetPath);
             if (reference == null)
             {
-                reference = CreateActionReference(cacheKey, assetPath, asset, mapNames, actionName);
+                reference = CreateActionReference(cacheKey, assetPath, asset, mapNames, actionNames);
             }
-            else if (!TryConfigureActionReference(reference, asset, mapNames, actionName))
+            else if (!TryConfigureActionReference(reference, asset, mapNames, actionNames))
             {
                 AssetDatabase.DeleteAsset(assetPath);
-                reference = CreateActionReference(cacheKey, assetPath, asset, mapNames, actionName);
+                reference = CreateActionReference(cacheKey, assetPath, asset, mapNames, actionNames);
             }
 
             if (reference == null)
@@ -2092,10 +2428,10 @@ namespace OneClick.VRConverter.Editor
             return reference;
         }
 
-        private InputActionReference CreateActionReference(string cacheKey, string assetPath, InputActionAsset sourceAsset, IReadOnlyList<string> mapNames, string actionName)
+        private InputActionReference CreateActionReference(string cacheKey, string assetPath, InputActionAsset sourceAsset, IReadOnlyList<string> mapNames, IReadOnlyList<string> actionNames)
         {
             var reference = ScriptableObject.CreateInstance<InputActionReference>();
-            if (!TryConfigureActionReference(reference, sourceAsset, mapNames, actionName))
+            if (!TryConfigureActionReference(reference, sourceAsset, mapNames, actionNames))
             {
                 UnityEngine.Object.DestroyImmediate(reference);
                 return null;
@@ -2108,20 +2444,21 @@ namespace OneClick.VRConverter.Editor
             return reference;
         }
 
-        private bool TryConfigureActionReference(InputActionReference reference, InputActionAsset asset, IReadOnlyList<string> mapNames, string actionName)
+        private bool TryConfigureActionReference(InputActionReference reference, InputActionAsset asset, IReadOnlyList<string> mapNames, IReadOnlyList<string> actionNames)
         {
-            if (reference == null || asset == null || string.IsNullOrEmpty(actionName))
+            if (reference == null || asset == null || actionNames == null || actionNames.Count == 0)
             {
                 return false;
             }
 
-            var action = FindActionByMapCandidates(asset, mapNames, actionName);
+            var action = FindActionByMapCandidates(asset, mapNames, actionNames);
             if (action == null)
             {
                 var candidatesLabel = mapNames != null && mapNames.Count > 0
                     ? string.Join(" / ", mapNames)
                     : "<未指定 Action Map>";
-                Log($"无法创建输入动作引用（{candidatesLabel}/{actionName}）：请确认“XRI Default Input Actions”中包含该 Action Map。");
+                var actionLabel = string.Join(" / ", actionNames);
+                Log($"无法创建输入动作引用（{candidatesLabel}/{actionLabel}）：请确认“XRI Default Input Actions”中包含该 Action Map。");
                 return false;
             }
 
@@ -2137,6 +2474,25 @@ namespace OneClick.VRConverter.Editor
             }
 
             return true;
+        }
+
+        private InputAction FindActionByMapCandidates(InputActionAsset asset, IReadOnlyList<string> mapNames, IReadOnlyList<string> actionNames)
+        {
+            if (actionNames == null || actionNames.Count == 0)
+            {
+                return null;
+            }
+
+            foreach (var actionName in actionNames)
+            {
+                var action = FindActionByMapCandidates(asset, mapNames, actionName);
+                if (action != null)
+                {
+                    return action;
+                }
+            }
+
+            return null;
         }
 
         private InputAction FindActionByMapCandidates(InputActionAsset asset, IReadOnlyList<string> mapNames, string actionName)
@@ -2156,7 +2512,7 @@ namespace OneClick.VRConverter.Editor
                     }
 
                     var map = asset.actionMaps.FirstOrDefault(m =>
-                        string.Equals(m.name, mapName, StringComparison.OrdinalIgnoreCase));
+                        IsMatchingActionMapName(m.name, mapName));
                     var action = map?.FindAction(actionName, throwIfNotFound: false);
                     if (action != null)
                     {

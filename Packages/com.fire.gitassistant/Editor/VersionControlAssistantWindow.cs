@@ -795,14 +795,29 @@ namespace Fire.VersionControlAssistant
                 {
                     fontSize = 13,
                     fontStyle = FontStyle.Bold,
-                    fixedHeight = 34
+                    fixedHeight = 34,
+                    padding = new RectOffset(16, 16, 6, 6),
+                    normal = { textColor = Color.white }
                 };
+                var primaryNormalTex = CreateColorTexture(new Color(0.2f, 0.6f, 0.9f));
+                var primaryHoverTex = CreateColorTexture(new Color(0.25f, 0.65f, 0.95f));
+                var primaryActiveTex = CreateColorTexture(new Color(0.18f, 0.55f, 0.85f));
+                _primaryButtonStyle.normal.background = primaryNormalTex;
+                _primaryButtonStyle.hover.background = primaryHoverTex;
+                _primaryButtonStyle.active.background = primaryActiveTex;
 
                 _secondaryButtonStyle = new GUIStyle(GUI.skin.button)
                 {
                     fontSize = 13,
-                    fixedHeight = 34
+                    fixedHeight = 34,
+                    padding = new RectOffset(14, 14, 5, 5)
                 };
+                var secondaryNormalTex = CreateColorTexture(EditorGUIUtility.isProSkin ? new Color(0.3f, 0.32f, 0.38f) : new Color(0.7f, 0.72f, 0.78f));
+                var secondaryHoverTex = CreateColorTexture(EditorGUIUtility.isProSkin ? new Color(0.35f, 0.37f, 0.43f) : new Color(0.75f, 0.77f, 0.83f));
+                var secondaryActiveTex = CreateColorTexture(EditorGUIUtility.isProSkin ? new Color(0.25f, 0.27f, 0.33f) : new Color(0.65f, 0.67f, 0.73f));
+                _secondaryButtonStyle.normal.background = secondaryNormalTex;
+                _secondaryButtonStyle.hover.background = secondaryHoverTex;
+                _secondaryButtonStyle.active.background = secondaryActiveTex;
 
                 _heroStyle = new GUIStyle("HelpBox")
                 {
@@ -918,6 +933,15 @@ namespace Fire.VersionControlAssistant
 
             texture.Apply();
             texture.wrapMode = TextureWrapMode.Clamp;
+            texture.hideFlags = HideFlags.HideAndDontSave;
+            return texture;
+        }
+
+        private static Texture2D CreateColorTexture(Color color)
+        {
+            var texture = new Texture2D(1, 1);
+            texture.SetPixel(0, 0, color);
+            texture.Apply();
             texture.hideFlags = HideFlags.HideAndDontSave;
             return texture;
         }

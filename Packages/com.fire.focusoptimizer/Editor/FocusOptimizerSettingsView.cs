@@ -530,24 +530,21 @@ namespace FireTools.FocusOptimizer
 
         private void DrawCard(System.Action content)
         {
-            var cardStyle = new GUIStyle(GUI.skin.box)
+            if (_cardBackgroundTexture == null)
             {
-                padding = new RectOffset(15, 15, 15, 15),
-                margin = new RectOffset(5, 5, 5, 5)
+                _cardBackgroundTexture = CreateCardBackground();
+            }
+
+            var cardStyle = new GUIStyle("HelpBox")
+            {
+                padding = new RectOffset(16, 16, 14, 14),
+                margin = new RectOffset(0, 0, 4, 4)
             };
-
-            var backgroundColor = EditorGUIUtility.isProSkin
-                ? new Color(0.22f, 0.22f, 0.22f, 1f)
-                : new Color(0.95f, 0.95f, 0.95f, 1f);
-
-            var originalColor = GUI.backgroundColor;
-            GUI.backgroundColor = backgroundColor;
+            cardStyle.normal.background = _cardBackgroundTexture;
 
             EditorGUILayout.BeginVertical(cardStyle);
             content?.Invoke();
             EditorGUILayout.EndVertical();
-
-            GUI.backgroundColor = originalColor;
         }
 
         private void DrawSectionHeader(string title, string tooltip, Texture icon)
@@ -587,12 +584,31 @@ namespace FireTools.FocusOptimizer
 
         private bool DrawActionButton(string label, string tooltip, Color color)
         {
-            var originalColor = GUI.color;
-            GUI.color = color;
+            var buttonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 12,
+                fontStyle = FontStyle.Bold,
+                fixedHeight = 30,
+                padding = new RectOffset(14, 14, 5, 5),
+                normal = { textColor = Color.white }
+            };
+
+            var normalTex = CreateColorTexture(color);
+            var hoverTex = CreateColorTexture(new Color(
+                Mathf.Min(1f, color.r * 1.15f),
+                Mathf.Min(1f, color.g * 1.15f),
+                Mathf.Min(1f, color.b * 1.15f)));
+            var activeTex = CreateColorTexture(new Color(
+                Mathf.Max(0f, color.r * 0.85f),
+                Mathf.Max(0f, color.g * 0.85f),
+                Mathf.Max(0f, color.b * 0.85f)));
+
+            buttonStyle.normal.background = normalTex;
+            buttonStyle.hover.background = hoverTex;
+            buttonStyle.active.background = activeTex;
+
             var content = new GUIContent(label, tooltip);
-            bool clicked = GUILayout.Button(content, GUILayout.Height(25));
-            GUI.color = originalColor;
-            return clicked;
+            return GUILayout.Button(content, buttonStyle);
         }
 
         private void DrawStatusInfo()
@@ -683,8 +699,8 @@ namespace FireTools.FocusOptimizer
         {
             var texture = new Texture2D(1, 1);
             var color = EditorGUIUtility.isProSkin
-                ? new Color(0.22f, 0.22f, 0.22f, 1f)
-                : new Color(0.95f, 0.95f, 0.95f, 1f);
+                ? new Color(0.22f, 0.24f, 0.28f, 1f)
+                : new Color(0.96f, 0.96f, 0.97f, 1f);
             texture.SetPixel(0, 0, color);
             texture.Apply();
             texture.hideFlags = HideFlags.HideAndDontSave;
