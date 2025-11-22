@@ -1,0 +1,15 @@
+{
+    "Backups": [
+        {
+            "Id": "“一键执行所有步骤（推荐）”_20251122_211706",
+            "OperationName": "“一键执行所有步骤（推荐）”",
+            "TimestampString": "2025-11-22 21:17:06",
+            "Files": [
+                "Packages/manifest.json",
+                "ProjectSettings/ProjectSettings.asset",
+                "Assets/Scenes/DemoNight.unity"
+            ],
+            "BackupDirectory": "D:\\Unity_test\\fire\\VRConverterBackups\\“一键执行所有步骤（推荐）”_20251122_211706"
+        }
+    ]
+}
