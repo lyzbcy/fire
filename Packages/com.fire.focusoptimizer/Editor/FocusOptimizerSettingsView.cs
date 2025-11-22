@@ -13,6 +13,23 @@ namespace FireTools.FocusOptimizer
         private Texture2D _headerGradientTexture;
         private bool _statusDetailFoldout = true;
 
+        /// <summary>
+        /// 清理资源，在窗口关闭时调用
+        /// </summary>
+        internal void CleanupResources()
+        {
+            if (_cardBackgroundTexture != null)
+            {
+                Object.DestroyImmediate(_cardBackgroundTexture);
+                _cardBackgroundTexture = null;
+            }
+            if (_headerGradientTexture != null)
+            {
+                Object.DestroyImmediate(_headerGradientTexture);
+                _headerGradientTexture = null;
+            }
+        }
+
         internal void OnGUI()
         {
             InitializeResources();

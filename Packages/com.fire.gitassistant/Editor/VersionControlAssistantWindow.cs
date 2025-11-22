@@ -33,6 +33,7 @@ namespace Fire.VersionControlAssistant
 
         private Vector2 _rightPanelScroll;
         private Vector2 _logHistoryScroll;
+        private Vector2 _mainScroll;
         private GUIStyle _cardStyle;
         private GUIStyle _mutedLabelStyle;
         private GUIStyle _pillStyle;
@@ -110,6 +111,48 @@ namespace Fire.VersionControlAssistant
         private void OnDisable()
         {
             GitLocalization.LanguageChanged -= HandleLanguageChanged;
+            CleanupResources();
+        }
+
+        private void CleanupResources()
+        {
+            // 清理纹理资源
+            if (_cardBackgroundTexture != null)
+            {
+                DestroyImmediate(_cardBackgroundTexture);
+                _cardBackgroundTexture = null;
+            }
+            if (_heroBackgroundTexture != null)
+            {
+                DestroyImmediate(_heroBackgroundTexture);
+                _heroBackgroundTexture = null;
+            }
+            if (_metricBackgroundTexture != null)
+            {
+                DestroyImmediate(_metricBackgroundTexture);
+                _metricBackgroundTexture = null;
+            }
+
+            // 重置样式引用（样式对象会在下次 EnsureStyles 时重新创建）
+            _cardStyle = null;
+            _mutedLabelStyle = null;
+            _pillStyle = null;
+            _primaryButtonStyle = null;
+            _secondaryButtonStyle = null;
+            _heroStyle = null;
+            _heroTitleStyle = null;
+            _heroSubtitleStyle = null;
+            _metricBadgeStyle = null;
+            _metricLabelStyle = null;
+            _metricValueStyle = null;
+            _heroHelpButtonStyle = null;
+            _logCommitCardStyle = null;
+            _logCommitTitleStyle = null;
+            _logCommitMetaStyle = null;
+            _authorTagStyle = null;
+            _cardHeaderTitleStyle = null;
+            _cardHeaderSubtitleStyle = null;
+            _cardHeaderIconStyle = null;
         }
 
         private void HandleLanguageChanged()
@@ -126,6 +169,9 @@ namespace Fire.VersionControlAssistant
 
             DrawToolbar();
 
+            // 为主内容区域添加滚动条
+            _mainScroll = EditorGUILayout.BeginScrollView(_mainScroll, GUILayout.ExpandHeight(true));
+            
             EditorGUILayout.Space(6);
             DrawHeroHeader();
             EditorGUILayout.Space(6);
@@ -151,6 +197,8 @@ namespace Fire.VersionControlAssistant
                     EditorGUILayout.EndScrollView();
                 }
             }
+            
+            EditorGUILayout.EndScrollView();
         }
 
         private void DrawToolbar()
@@ -303,7 +351,7 @@ namespace Fire.VersionControlAssistant
         {
             using (new EditorGUILayout.VerticalScope(_cardStyle, GUILayout.ExpandHeight(true)))
             {
-                DrawCardHeader(_changesCardIconContent, GitLocalization.Tr("changes.cardTitle"), GitLocalization.Tr("changes.total", _entries.Count));
+                DrawCardHeader(_changesCardIconContent, GitLocalization.Tr("changes.cardTitle"), GitLocalization.Tr("changes.total", _entries?.Count ?? 0));
 
                 EditorGUILayout.Space(4);
                 DrawChangeBadges();
@@ -322,6 +370,12 @@ namespace Fire.VersionControlAssistant
 
         private void DrawChangeBadges()
         {
+            if (_entries == null || _entries.Count == 0)
+            {
+                EditorGUILayout.LabelField(GitLocalization.Tr("changes.empty"), _mutedLabelStyle);
+                return;
+            }
+
             var groups = _entries
                 .GroupBy(e => e.Kind)
                 .OrderByDescending(g => g.Count())
@@ -357,7 +411,7 @@ namespace Fire.VersionControlAssistant
 
         private void DrawChangeDistributionBar(IReadOnlyList<IGrouping<GitChangeKind, GitStatusEntry>> groups)
         {
-            if (_entries == null || _entries.Count == 0)
+            if (_entries == null || _entries.Count == 0 || groups == null || groups.Count == 0)
             {
                 return;
             }
@@ -611,20 +665,29 @@ namespace Fire.VersionControlAssistant
 
         private void RefreshData()
         {
-            _branch = GitProcessUtility.GetCurrentBranch();
-            _entries = GitProcessUtility.GetStatusEntries();
-            _commitHistory = GitProcessUtility.GetRecentCommits();
-            _treeView?.SetEntries(_entries);
-            _statusSummary = BuildSummary(_entries);
-            _errorMessage = string.Empty;
-            UpdateRemoteOptions();
-
-            if (string.IsNullOrEmpty(_pushBranch) && !string.IsNullOrEmpty(_branch))
+            try
             {
-                _pushBranch = _branch;
-            }
+                _branch = GitProcessUtility.GetCurrentBranch() ?? string.Empty;
+                _entries = GitProcessUtility.GetStatusEntries() ?? Array.Empty<GitStatusEntry>();
+                _commitHistory = GitProcessUtility.GetRecentCommits() ?? Array.Empty<GitCommitEntry>();
+                _treeView?.SetEntries(_entries);
+                _statusSummary = BuildSummary(_entries);
+                _errorMessage = string.Empty;
+                UpdateRemoteOptions();
 
-            Repaint();
+                if (string.IsNullOrEmpty(_pushBranch) && !string.IsNullOrEmpty(_branch))
+                {
+                    _pushBranch = _branch;
+                }
+
+                Repaint();
+            }
+            catch (Exception ex)
+            {
+                _errorMessage = $"刷新数据时出错: {ex.Message}";
+                UnityEngine.Debug.LogError($"[Version Control Assistant] {_errorMessage}\n{ex}");
+                Repaint();
+            }
         }
 
         private string BuildSummary(IReadOnlyList<GitStatusEntry> entries)

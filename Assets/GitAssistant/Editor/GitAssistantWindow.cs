@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
+using Fire.VersionControlAssistant;
 
 namespace Fire.GitAssistant
 {
@@ -88,14 +89,15 @@ namespace Fire.GitAssistant
         private bool CanPull => !string.IsNullOrWhiteSpace(_remoteName) && !string.IsNullOrWhiteSpace(_pushBranch);
         private bool CanPush => !string.IsNullOrWhiteSpace(GetPushTarget()) && !string.IsNullOrWhiteSpace(_pushBranch);
 
-        [MenuItem("Tools/Version Control Assistant")]
-        public static void ShowWindow()
-        {
-            var window = GetWindow<GitAssistantWindow>();
-            window.minSize = new Vector2(760, 460);
-            window.titleContent = new GUIContent(GitLocalization.Tr("window.title"));
-            window.RefreshData();
-        }
+        // 菜单项已移至 Packages/com.fire.gitassistant/Editor/VersionControlAssistantWindow.cs
+        // [MenuItem("Tools/Version Control Assistant")]
+        // public static void ShowWindow()
+        // {
+        //     var window = GetWindow<GitAssistantWindow>();
+        //     window.minSize = new Vector2(760, 460);
+        //     window.titleContent = new GUIContent(GitLocalization.Tr("window.title"));
+        //     window.RefreshData();
+        // }
 
         private void OnEnable()
         {
@@ -591,7 +593,7 @@ namespace Fire.GitAssistant
 
             var remote = _remoteName?.Trim() ?? string.Empty;
             var branch = _pushBranch?.Trim() ?? string.Empty;
-            GitPullHistoryWindow.Show(remote, branch, hash => HandleHistoricalPull(remote, branch, hash));
+            VersionControlPullHistoryWindow.Show(remote, branch, hash => HandleHistoricalPull(remote, branch, hash));
         }
 
         private void HandleHistoricalPull(string remote, string branch, string commitHash)

@@ -14,6 +14,7 @@ namespace FireTools.FocusOptimizer
         private static void OpenWindow()
         {
             var window = GetWindow<FocusOptimizerWindow>();
+            window.minSize = new Vector2(520, 400);
             window.titleContent = new GUIContent(
                 FocusOptimizerLocalization.Tr("window.title"),
                 EditorGUIUtility.IconContent("d_Settings").image);
@@ -31,6 +32,9 @@ namespace FireTools.FocusOptimizer
         {
             _openCount = Mathf.Max(0, _openCount - 1);
             FocusOptimizerLocalization.LanguageChanged -= OnLanguageChanged;
+            
+            // 清理视图资源
+            _view?.CleanupResources();
         }
 
         private void OnLanguageChanged()

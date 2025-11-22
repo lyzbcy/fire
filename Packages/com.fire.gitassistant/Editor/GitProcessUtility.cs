@@ -12,18 +12,55 @@ namespace Fire.VersionControlAssistant
     {
         private static readonly Encoding ConsoleEncoding = new UTF8Encoding(false, true);
 
-        public static string ProjectRoot =>
-            Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        public static string ProjectRoot
+        {
+            get
+            {
+                try
+                {
+                    return Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+                }
+                catch (Exception ex)
+                {
+                    UnityEngine.Debug.LogError($"[Version Control Assistant] 无法获取项目根目录: {ex.Message}");
+                    return Application.dataPath;
+                }
+            }
+        }
 
         public static GitProcessResult Run(string arguments, bool logOnError = true)
         {
             try
             {
+                // 验证项目根目录
+                var projectRoot = ProjectRoot;
+                if (string.IsNullOrEmpty(projectRoot) || !Directory.Exists(projectRoot))
+                {
+                    var error = $"项目根目录无效或不存在: {projectRoot}";
+                    if (logOnError)
+                    {
+                        UnityEngine.Debug.LogError($"[Version Control Assistant] {error}");
+                    }
+                    return new GitProcessResult(false, string.Empty, error);
+                }
+
+                // 跨平台 Git 命令查找
+                var gitCommand = GetGitCommand();
+                if (string.IsNullOrEmpty(gitCommand))
+                {
+                    var error = "未找到 Git 命令，请确保已安装 Git 并添加到系统 PATH";
+                    if (logOnError)
+                    {
+                        UnityEngine.Debug.LogError($"[Version Control Assistant] {error}");
+                    }
+                    return new GitProcessResult(false, string.Empty, error);
+                }
+
                 var startInfo = new ProcessStartInfo
                 {
-                    FileName = "git",
+                    FileName = gitCommand,
                     Arguments = arguments,
-                    WorkingDirectory = ProjectRoot,
+                    WorkingDirectory = projectRoot,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     StandardOutputEncoding = ConsoleEncoding,
@@ -76,6 +113,48 @@ namespace Fire.VersionControlAssistant
                 }
                 return new GitProcessResult(false, string.Empty, ex.Message);
             }
+        }
+
+        /// <summary>
+        /// 跨平台获取 Git 命令路径
+        /// </summary>
+        private static string GetGitCommand()
+        {
+            // Windows: 尝试 "git" 或 "git.exe"
+            // macOS/Linux: 通常就是 "git"
+            var candidates = new[] { "git", "git.exe" };
+            
+            foreach (var candidate in candidates)
+            {
+                try
+                {
+                    var startInfo = new ProcessStartInfo
+                    {
+                        FileName = candidate,
+                        Arguments = "--version",
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+
+                    using var process = Process.Start(startInfo);
+                    if (process != null)
+                    {
+                        process.WaitForExit(1000); // 1秒超时
+                        if (process.ExitCode == 0)
+                        {
+                            return candidate;
+                        }
+                    }
+                }
+                catch
+                {
+                    // 继续尝试下一个候选
+                }
+            }
+
+            return null;
         }
 
         public static IReadOnlyList<GitStatusEntry> GetStatusEntries()
