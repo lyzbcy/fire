@@ -173,6 +173,16 @@ namespace OneClick.VRConverter.Editor
             EditorApplication.delayCall += Repaint;
             LoadModePreference();
             InitProTargetGroupToggles();
+            
+            // 检查 Unity 版本兼容性
+            EditorApplication.delayCall += () =>
+            {
+                if (!UnityVersionChecker.CheckCompatibility(showWarning: false))
+                {
+                    // 用户选择不继续，关闭窗口
+                    Close();
+                }
+            };
         }
 
         private void OnDisable()
@@ -185,12 +195,20 @@ namespace OneClick.VRConverter.Editor
         {
             var window = GetWindow<VRProjectConverterWindow>("一键VR转换");
             window.minSize = new Vector2(420, 320);
-            window.Log("打开一键 VR 转换工具。");
+            window.Log(Localization.Get("Log.OpenTool"));
+            
+            // 记录版本信息
+            var versionInfo = UnityVersionChecker.GetCompatibilityInfo();
+            Logger.LogInfo($"打开窗口 - Unity 版本: {versionInfo.CurrentVersion}, 兼容性: {versionInfo.Status}");
         }
 
         private void OnGUI()
         {
-            InitStyles();
+            // 性能优化：只在必要时初始化样式
+            if (_headerTitleStyle == null)
+            {
+                InitStyles();
+            }
 
             float scrollViewHeight = Mathf.Max(0f, position.height - 16f);
             _windowScroll = EditorGUILayout.BeginScrollView(
@@ -226,7 +244,12 @@ namespace OneClick.VRConverter.Editor
         private void Log(string msg)
         {
             _log += $"[{System.DateTime.Now:HH:mm:ss}] {msg}\n";
-            Repaint();
+            Logger.LogInfo(msg); // 同时写入日志文件
+            // 性能优化：只在必要时重绘，避免频繁刷新
+            if (!EditorApplication.isCompiling && !EditorApplication.isUpdating)
+            {
+                Repaint();
+            }
         }
 
         /// <summary>
@@ -436,13 +459,42 @@ namespace OneClick.VRConverter.Editor
         {
             EditorGUILayout.BeginVertical(_heroCardStyle);
             {
+                // 语言切换和诊断报告按钮
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    
+                    // 语言切换
+                    var currentLang = Localization.GetCurrentLanguage();
+                    var langDisplay = Localization.GetLanguageDisplayName(currentLang);
+                    if (GUILayout.Button(langDisplay, GUILayout.Width(80)))
+                    {
+                        var nextLang = currentLang switch
+                        {
+                            Localization.Language.Chinese => Localization.Language.English,
+                            Localization.Language.English => Localization.Language.Japanese,
+                            Localization.Language.Japanese => Localization.Language.Chinese,
+                            _ => Localization.Language.Chinese
+                        };
+                        Localization.SetLanguage(nextLang);
+                        Repaint();
+                    }
+                    
+                    GUILayout.Space(8);
+                    
+                    // 诊断报告按钮
+                    if (GUILayout.Button("诊断报告", GUILayout.Width(100)))
+                    {
+                        GenerateDiagnosticReport();
+                    }
+                }
+                
                 EditorGUILayout.Space(8);
-                EditorGUILayout.LabelField("一键 VR 项目转换", _headerTitleStyle);
+                EditorGUILayout.LabelField(Localization.Get("Window.Header.Title"), _headerTitleStyle);
                 EditorGUILayout.Space(6);
 
                 EditorGUILayout.LabelField(
-                    "面向新手的引导式工具：帮助你将当前项目快速配置为基础 VR 项目，" +
-                    "自动处理 XR 包依赖、XR Plug-in Management 配置以及场景中的 XR Rig。",
+                    Localization.Get("Window.Header.Description"),
                     _headerSubTitleStyle);
 
                 EditorGUILayout.Space(12);
@@ -452,8 +504,8 @@ namespace OneClick.VRConverter.Editor
                     var compiling = EditorApplication.isCompiling;
                     var icon = EditorGUIUtility.IconContent(compiling ? "console.warnicon" : "TestPassed");
                     var msg = compiling
-                        ? "Unity 正在导入或编译脚本，请等待完成后再执行\"第 2 步\"或\"一键执行\"操作。"
-                        : "当前状态良好，可以直接执行\"一键执行所有步骤（推荐）\"。";
+                        ? Localization.Get("Status.Compiling")
+                        : Localization.Get("Status.Ready");
 
                     EditorGUILayout.LabelField(icon, GUILayout.Width(24), GUILayout.Height(24));
                     EditorGUILayout.Space(8);
@@ -463,17 +515,50 @@ namespace OneClick.VRConverter.Editor
             }
             EditorGUILayout.EndVertical();
         }
+        
+        private void GenerateDiagnosticReport()
+        {
+            try
+            {
+                var report = DiagnosticReporter.GenerateReport();
+                var defaultPath = Path.Combine(Application.dataPath, "..", $"VRConverter_Diagnostic_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
+                var exportPath = EditorUtility.SaveFilePanel("导出诊断报告", "", Path.GetFileName(defaultPath), "txt");
+                
+                if (!string.IsNullOrEmpty(exportPath))
+                {
+                    if (DiagnosticReporter.ExportReport(exportPath, out var error))
+                    {
+                        EditorUtility.DisplayDialog(
+                            Localization.Get("Success.LogExported", ""),
+                            $"诊断报告已导出到:\n{exportPath}",
+                            Localization.Get("Button.OK"));
+                        EditorUtility.RevealInFinder(exportPath);
+                    }
+                    else
+                    {
+                        EditorUtility.DisplayDialog(
+                            Localization.Get("Error.LogExportFailed"),
+                            $"导出失败:\n{error}",
+                            Localization.Get("Button.OK"));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleException(ex, "生成诊断报告");
+            }
+        }
 
         private void DrawModeSwitcher()
         {
             EditorGUILayout.BeginVertical(_cardStyle);
-            EditorGUILayout.LabelField("模式选择", _stepTitleStyle);
+            EditorGUILayout.LabelField(Localization.Get("Mode.Title"), _stepTitleStyle);
             EditorGUILayout.Space(10);
 
             var contents = new[]
             {
-                new GUIContent("傻瓜式一键"),
-                new GUIContent("专业模式")
+                new GUIContent(Localization.Get("Mode.Guided")),
+                new GUIContent(Localization.Get("Mode.Professional"))
             };
 
             int selected = GUILayout.Toolbar((int)_uiMode, contents, GUILayout.Height(32));
@@ -485,8 +570,8 @@ namespace OneClick.VRConverter.Editor
 
             EditorGUILayout.Space(8);
             var desc = _uiMode == ConverterMode.Guided
-                ? "保持\"一键执行\"体验，适合第一次接触 VR 项目的同学。"
-                : "自定义执行步骤、目标平台与场景策略，满足不同团队流程。";
+                ? Localization.Get("Mode.Guided.Description", "保持\"一键执行\"体验，适合第一次接触 VR 项目的同学。")
+                : Localization.Get("Mode.Professional.Description", "自定义执行步骤、目标平台与场景策略，满足不同团队流程。");
             EditorGUILayout.LabelField(desc, EditorStyles.wordWrappedMiniLabel);
             EditorGUILayout.EndVertical();
         }
@@ -494,16 +579,24 @@ namespace OneClick.VRConverter.Editor
         private void DrawCompatibilityInsights()
         {
             var diagnostics = GetProjectDiagnostics();
+            var versionInfo = UnityVersionChecker.GetCompatibilityInfo();
+            
             EditorGUILayout.BeginVertical(_cardStyle);
-            EditorGUILayout.LabelField("项目体检 & 兼容性建议", _stepTitleStyle);
+            EditorGUILayout.LabelField(Localization.Get("Compatibility.Title"), _stepTitleStyle);
             EditorGUILayout.Space(10);
 
             Action gitAssistantAction = diagnostics.HasGitAssistant
                 ? null
                 : () => Application.OpenURL(GitAssistantAssetStoreUrl);
 
+            // 版本兼容性状态
+            var versionStatus = versionInfo.Status == CompatibilityStatus.Supported;
+            var versionValue = $"{versionInfo.CurrentVersion} ({GetVersionStatusText(versionInfo.Status)})";
+            var versionHint = versionInfo.Recommendation;
+
             var rows = new[]
             {
+                new DiagnosticRow("Unity 版本", versionValue, versionStatus, versionHint),
                 new DiagnosticRow("渲染管线", diagnostics.RenderPipelineLabel, true, diagnostics.RenderPipelineHint),
                 new DiagnosticRow("XR Management", diagnostics.HasXrManagement ? "已检测到" : "尚未安装", diagnostics.HasXrManagement,
                     diagnostics.HasXrManagement ? "可直接配置 XRGeneralSettings。" : "建议先通过第 1 步或 Package Manager 导入 XR Management。"),
@@ -544,6 +637,17 @@ namespace OneClick.VRConverter.Editor
             }
 
             EditorGUILayout.EndVertical();
+        }
+
+        private string GetVersionStatusText(CompatibilityStatus status)
+        {
+            return status switch
+            {
+                CompatibilityStatus.Supported => "兼容",
+                CompatibilityStatus.Warning => "警告",
+                CompatibilityStatus.Unsupported => "不兼容",
+                _ => "未知"
+            };
         }
 
         private readonly struct DiagnosticRow
@@ -638,41 +742,41 @@ namespace OneClick.VRConverter.Editor
         private void DrawProfessionalMode()
         {
             EditorGUILayout.BeginVertical(_cardStyle);
-            EditorGUILayout.LabelField("专业模式计划", _stepTitleStyle);
+            EditorGUILayout.LabelField(Localization.Get("Pro.Plan.Title"), _stepTitleStyle);
             EditorGUILayout.Space(10);
-            EditorGUILayout.LabelField("自定义执行步骤与目标平台，适配已有项目结构。", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField(Localization.Get("Pro.Plan.Description"), EditorStyles.wordWrappedMiniLabel);
             EditorGUILayout.Space(12);
 
-            _proIncludePackages = EditorGUILayout.ToggleLeft("XR 依赖检查 / 安装", _proIncludePackages);
-            _proIncludeProjectSettings = EditorGUILayout.ToggleLeft("Project Settings：XR Plug-in 配置", _proIncludeProjectSettings);
-            _proIncludeSceneConversion = EditorGUILayout.ToggleLeft("场景转换（XR Rig / VRRig）", _proIncludeSceneConversion);
-            _proIncludeDeviceSimulator = EditorGUILayout.ToggleLeft("配置 VR 模拟设备（XR Device Simulator）", _proIncludeDeviceSimulator);
+            _proIncludePackages = EditorGUILayout.ToggleLeft(Localization.Get("Pro.Plan.CheckPackages"), _proIncludePackages);
+            _proIncludeProjectSettings = EditorGUILayout.ToggleLeft(Localization.Get("Pro.Plan.CheckProjectSettings"), _proIncludeProjectSettings);
+            _proIncludeSceneConversion = EditorGUILayout.ToggleLeft(Localization.Get("Pro.Plan.ConvertScene"), _proIncludeSceneConversion);
+            _proIncludeDeviceSimulator = EditorGUILayout.ToggleLeft(Localization.Get("Pro.Plan.DeviceSimulator"), _proIncludeDeviceSimulator);
 
             EditorGUILayout.Space(10);
-            EditorGUILayout.LabelField("目标平台", _stepTitleStyle);
+            EditorGUILayout.LabelField(Localization.Get("Pro.TargetPlatforms"), _stepTitleStyle);
             EditorGUILayout.Space(4);
             foreach (var group in TargetGroups)
             {
                 bool current = _proTargetGroupToggles.TryGetValue(group, out var enabled) ? enabled : true;
-                bool next = EditorGUILayout.ToggleLeft($"为 {group} 配置 XR", current);
+                bool next = EditorGUILayout.ToggleLeft(Localization.Get("Pro.TargetPlatform.For", group), current);
                 _proTargetGroupToggles[group] = next;
             }
             if (GetProfessionalTargetGroups().Length == 0)
             {
                 EditorGUILayout.Space(4);
-                EditorGUILayout.HelpBox("未选择目标平台时将回退到默认（Standalone + Android）。", MessageType.Info);
+                EditorGUILayout.HelpBox(Localization.Get("Pro.TargetPlatform.NoSelection"), MessageType.Info);
             }
 
             EditorGUILayout.Space(10);
             using (new EditorGUI.DisabledScope(!_proIncludeSceneConversion))
             {
-                EditorGUILayout.LabelField("场景转换策略", _stepTitleStyle);
-                _proRigStrategy = (RigStrategy)EditorGUILayout.EnumPopup(new GUIContent("Rig 策略", "选择如何处理 XR Origin / VRRig。"), _proRigStrategy);
-                _proPreserveLegacyMainCamera = EditorGUILayout.ToggleLeft("保留现有 Main Camera（不强制禁用）", _proPreserveLegacyMainCamera);
+                EditorGUILayout.LabelField(Localization.Get("Pro.SceneStrategy"), _stepTitleStyle);
+                _proRigStrategy = (RigStrategy)EditorGUILayout.EnumPopup(new GUIContent(Localization.Get("Pro.RigStrategy"), Localization.Get("Pro.RigStrategy.Tooltip")), _proRigStrategy);
+                _proPreserveLegacyMainCamera = EditorGUILayout.ToggleLeft(Localization.Get("Pro.PreserveLegacyCamera"), _proPreserveLegacyMainCamera);
             }
 
             EditorGUILayout.Space(12);
-            if (GUILayout.Button("执行专业模式计划", _primaryButtonStyle))
+            if (GUILayout.Button(Localization.Get("Pro.ExecutePlan"), _primaryButtonStyle))
             {
                 RunProfessionalPlan();
             }
@@ -688,22 +792,18 @@ namespace OneClick.VRConverter.Editor
         private void DrawQuickActions()
         {
             EditorGUILayout.BeginVertical(_cardStyle);
-            EditorGUILayout.LabelField("快速开始（推荐）", _stepTitleStyle);
+            EditorGUILayout.LabelField(Localization.Get("QuickStart.Title"), _stepTitleStyle);
             EditorGUILayout.Space(10);
 
             EditorGUILayout.LabelField(
-                "适合第一次接触 VR 项目的同学：点击一次即可按顺序执行所有必要步骤。" +
-                "如果中途需要重新导入包，可以稍后再单独执行\"第 2 步\"。",
+                Localization.Get("QuickStart.Description"),
                 EditorStyles.wordWrappedMiniLabel);
 
             EditorGUILayout.Space(12);
 
             var content = new GUIContent(
-                "一键执行所有步骤（推荐）",
-                "依次执行：\n" +
-                "1. 检查并安装 XR Management / OpenXR / XR Interaction Toolkit；\n" +
-                "2. 自动配置 XR Plug-in Management（Standalone + Android 启用 OpenXR）；\n" +
-                "3. 将当前场景转换为 VR 场景并创建/更新 XR Rig。");
+                Localization.Get("Guided.RunAll.Title"),
+                Localization.Get("QuickStart.RunAll.Tooltip"));
 
             if (GUILayout.Button(content, _primaryButtonStyle))
             {
@@ -711,7 +811,7 @@ namespace OneClick.VRConverter.Editor
             }
 
             EditorGUILayout.Space(8);
-            EditorGUILayout.LabelField("如果你不熟悉 XR 配置，推荐优先使用上面的\"一键执行\"按钮。", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField(Localization.Get("QuickStart.Hint"), EditorStyles.wordWrappedMiniLabel);
             EditorGUILayout.EndVertical();
         }
 
@@ -749,20 +849,17 @@ namespace OneClick.VRConverter.Editor
         private void DrawStep1Card()
         {
             EditorGUILayout.BeginVertical(_cardStyle);
-            EditorGUILayout.LabelField("第 1 步：准备 XR 依赖包", _stepTitleStyle);
+            EditorGUILayout.LabelField(Localization.Get("Step1.Title"), _stepTitleStyle);
             EditorGUILayout.Space(10);
             EditorGUILayout.LabelField(
-                "在 Packages/manifest.json 中检查并安装如下 XR 相关包：\n" +
-                "- XR Management\n- OpenXR\n- XR Interaction Toolkit\n\n" +
-                "适合刚将普通项目升级为 VR 项目时使用。",
+                Localization.Get("Step1.Description"),
                 EditorStyles.wordWrappedMiniLabel);
 
             EditorGUILayout.Space(12);
 
             var btnStep1 = new GUIContent(
-                "执行第 1 步",
-                "仅执行 XR 依赖检查和安装，不会修改 XR 设置或场景。" +
-                "\n建议在看到 Unity 编译完成后再继续执行第 2 步。");
+                Localization.Get("Step1.Button"),
+                Localization.Get("Step1.Tooltip"));
             if (GUILayout.Button(btnStep1, _secondaryButtonStyle))
             {
                 EnsureXrPackages();
@@ -774,12 +871,10 @@ namespace OneClick.VRConverter.Editor
         private void DrawStep2Card()
         {
             EditorGUILayout.BeginVertical(_cardStyle);
-            EditorGUILayout.LabelField("第 2 步：配置项目 & 场景", _stepTitleStyle);
+            EditorGUILayout.LabelField(Localization.Get("Step2.Title"), _stepTitleStyle);
             EditorGUILayout.Space(10);
             EditorGUILayout.LabelField(
-                "为 Standalone / Android 自动启用 OpenXR Loader，" +
-                "并在当前场景内创建或更新 XR Origin（如可用）或基础 VRRig。\n\n" +
-                "若你已经手动导入好 XR 包，可直接从第 2 步开始。",
+                Localization.Get("Step2.Description"),
                 EditorStyles.wordWrappedMiniLabel);
 
             EditorGUILayout.Space(12);
@@ -787,10 +882,10 @@ namespace OneClick.VRConverter.Editor
             using (new EditorGUI.DisabledScope(EditorApplication.isCompiling))
             {
                 var btnStep2 = new GUIContent(
-                    "执行第 2 步",
+                    Localization.Get("Step2.Button"),
                     EditorApplication.isCompiling
-                        ? "当前 Unity 正在编译，暂不可执行。请等待编译完成后再点击。"
-                        : "配置 XRGeneralSettings / XRManagerSettings，并在当前场景中创建或更新 VR Rig。");
+                        ? Localization.Get("Step2.Tooltip.Compiling")
+                        : Localization.Get("Step2.Tooltip.Ready"));
 
                 if (GUILayout.Button(btnStep2, _secondaryButtonStyle))
                 {
@@ -848,13 +943,13 @@ namespace OneClick.VRConverter.Editor
         private void DrawGitAssistantSupportCard()
         {
             EditorGUILayout.BeginVertical(_cardStyle);
-            EditorGUILayout.LabelField("版本控制助手联动（备份 & 回滚）", _stepTitleStyle);
+            EditorGUILayout.LabelField(Localization.Get("Git.Title"), _stepTitleStyle);
             EditorGUILayout.Space(10);
 
             var gitAvailable = IsGitAssistantInstalled();
             var description = gitAvailable
-                ? "检测到已安装版本控制助手：执行 VR 转换前请完成一次提交/标签备份，转换成功后可利用下方按钮快速回滚。"
-                : "尚未检测到版本控制助手。建议先在 Package Manager 中导入 com.fire.gitassistant，以便执行自动备份与回滚。";
+                ? Localization.Get("Git.Description.Installed")
+                : Localization.Get("Git.Description.NotInstalled");
             EditorGUILayout.LabelField(description, EditorStyles.wordWrappedMiniLabel);
 
             EditorGUILayout.Space(12);
@@ -862,16 +957,16 @@ namespace OneClick.VRConverter.Editor
             {
                 using (new EditorGUI.DisabledScope(!gitAvailable))
                 {
-                    if (GUILayout.Button("打开版本控制助手", _secondaryButtonStyle))
+                    if (GUILayout.Button(Localization.Get("Git.OpenAssistant"), _secondaryButtonStyle))
                     {
                         if (!OpenGitAssistantWindow())
                         {
-                            EditorUtility.DisplayDialog("提示", "未能打开版本控制助手，请确认已正确安装。", "好的");
+                            EditorUtility.DisplayDialog(Localization.Get("Dialog.Info"), Localization.Get("Dialog.GitAssistantNotFound"), Localization.Get("Button.Good"));
                         }
                     }
 
                     GUILayout.Space(8);
-                    if (GUILayout.Button("使用版本控制助手快速备份", _secondaryButtonStyle))
+                    if (GUILayout.Button(Localization.Get("Git.QuickBackup"), _secondaryButtonStyle))
                     {
                         TriggerQuickBackupFlow();
                     }
@@ -885,7 +980,7 @@ namespace OneClick.VRConverter.Editor
             {
                 using (new EditorGUI.DisabledScope(!canRollback))
                 {
-                    if (GUILayout.Button("回滚到转换前版本", _secondaryButtonStyle))
+                    if (GUILayout.Button(Localization.Get("Git.Rollback"), _secondaryButtonStyle))
                     {
                         AttemptRollbackToBaseline();
                     }
@@ -893,14 +988,14 @@ namespace OneClick.VRConverter.Editor
 
                 GUILayout.Space(8);
                 var baselineLabel = canRollback
-                    ? $"记录的提交：{GetShortHash(_lastBaselineCommitHash)}"
-                    : "尚未记录可回滚的提交";
+                    ? Localization.Get("Git.Baseline.Recorded", GetShortHash(_lastBaselineCommitHash))
+                    : Localization.Get("Git.Baseline.NotRecorded");
                 EditorGUILayout.LabelField(baselineLabel, EditorStyles.wordWrappedMiniLabel);
             }
 
             if (!gitAvailable)
             {
-                EditorGUILayout.HelpBox("安装版本控制助手后，可在此窗口中获得自动备份与回滚按钮。", MessageType.Info);
+                EditorGUILayout.HelpBox(Localization.Get("Git.Info"), MessageType.Info);
             }
 
             EditorGUILayout.EndVertical();
@@ -912,15 +1007,49 @@ namespace OneClick.VRConverter.Editor
         private void DrawLogArea()
         {
             EditorGUILayout.BeginVertical(_cardStyle);
-            EditorGUILayout.LabelField("执行日志（可帮助排查问题）", _stepTitleStyle);
+            EditorGUILayout.LabelField(Localization.Get("Log.Title"), _stepTitleStyle);
             EditorGUILayout.Space(10);
             EditorGUILayout.LabelField(
-                "这里会实时显示每一步执行情况，例如：\n" +
-                "- 是否成功安装 XR 相关包；\n" +
-                "- 是否成功启用 OpenXR Loader；\n" +
-                "- 场景中是否成功创建 XR Origin / VRRig 等。\n" +
-                "当你遇到问题时，可以先查看此处日志再处理。",
+                Localization.Get("Log.Description"),
                 EditorStyles.wordWrappedMiniLabel);
+
+            EditorGUILayout.Space(8);
+
+            // 日志操作按钮
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button(Localization.Get("Log.ViewFile"), GUILayout.Width(120)))
+                {
+                    var logFile = Logger.GetCurrentLogFilePath();
+                    if (!string.IsNullOrEmpty(logFile) && File.Exists(logFile))
+                    {
+                        EditorUtility.RevealInFinder(logFile);
+                    }
+                    else
+                    {
+                        EditorUtility.DisplayDialog(Localization.Get("Dialog.Info"), Localization.Get("Dialog.LogFileNotFound"), Localization.Get("Button.OK"));
+                    }
+                }
+
+                if (GUILayout.Button(Localization.Get("Log.Export"), GUILayout.Width(100)))
+                {
+                    var defaultPath = Path.Combine(Application.dataPath, "..", $"VRConverter_Log_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
+                    var exportPath = EditorUtility.SaveFilePanel(Localization.Get("Log.Export"), "", Path.GetFileName(defaultPath), "txt");
+                    if (!string.IsNullOrEmpty(exportPath))
+                    {
+                        if (Logger.ExportLog(exportPath, out var error))
+                        {
+                            EditorUtility.DisplayDialog(Localization.Get("Dialog.Success"), Localization.Get("Dialog.LogExported", exportPath), Localization.Get("Button.OK"));
+                        }
+                        else
+                        {
+                            EditorUtility.DisplayDialog(Localization.Get("Dialog.Failed"), Localization.Get("Dialog.LogExportFailed", error), Localization.Get("Button.OK"));
+                        }
+                    }
+                }
+
+                GUILayout.FlexibleSpace();
+            }
 
             EditorGUILayout.Space(8);
 
@@ -950,14 +1079,40 @@ namespace OneClick.VRConverter.Editor
         {
             if (!plan.HasAnyOperation)
             {
-                Log("未选择需要执行的步骤。");
+                Log(Localization.Get("Log.NoStepsSelected"));
                 return;
             }
 
             if (!EnsureBackupReady(actionName))
             {
-                Log($"用户取消执行 {actionName}，原因：尚未完成备份确认。");
+                Log(Localization.Get("Log.UserCancelled", actionName));
                 return;
+            }
+
+            // 创建操作备份
+            try
+            {
+                var filesToBackup = new List<string> { "Packages/manifest.json" };
+                if (plan.ConfigureProjectSettings)
+                {
+                    filesToBackup.Add("ProjectSettings/ProjectSettings.asset");
+                }
+                if (plan.ConvertScene && !string.IsNullOrEmpty(EditorSceneManager.GetActiveScene().path))
+                {
+                    filesToBackup.Add(EditorSceneManager.GetActiveScene().path);
+                }
+
+                var backupId = OperationBackup.CreateBackup(actionName, filesToBackup);
+                if (!string.IsNullOrEmpty(backupId))
+                {
+                    Log(Localization.Get("Log.BackupCreated", backupId));
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleException(ex, "创建操作备份", showDialog: false);
+                // 备份失败不阻止操作继续，但记录警告
+                Logger.LogWarning("操作备份创建失败，但操作将继续执行");
             }
 
             _lastConversionSucceeded = false;
@@ -969,7 +1124,7 @@ namespace OneClick.VRConverter.Editor
 
             if ((plan.ConfigureProjectSettings || plan.ConvertScene) && EditorApplication.isCompiling)
             {
-                Log("Unity 正在导入或编译脚本，请等待完成后再执行后续步骤。");
+                Log(Localization.Get("Log.Compiling"));
                 return;
             }
 
@@ -1011,7 +1166,7 @@ namespace OneClick.VRConverter.Editor
 
             if (!plan.HasAnyOperation)
             {
-                EditorUtility.DisplayDialog("提示", "请至少勾选一个需要执行的步骤。", "好的");
+                EditorUtility.DisplayDialog(Localization.Get("Dialog.Info"), Localization.Get("Dialog.NoStepsSelected"), Localization.Get("Button.Good"));
                 return;
             }
 
@@ -1032,49 +1187,79 @@ namespace OneClick.VRConverter.Editor
         /// </summary>
         private void EnsureXrPackages()
         {
-            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-            var manifestPath = Path.Combine(projectRoot, "Packages", "manifest.json");
-
-            if (!File.Exists(manifestPath))
+            using (var progress = new ProgressReporter("安装 XR 包", "正在检查包依赖..."))
             {
-                Log("未找到 Packages/manifest.json，无法自动添加 XR 依赖。");
+                var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+                var manifestPath = Path.Combine(projectRoot, "Packages", "manifest.json");
+
+                if (!File.Exists(manifestPath))
+                {
+                    Log(Localization.Get("Log.ManifestNotFound"));
+                    return;
+                }
+
+                progress.UpdateProgress(0.1f, "创建备份...");
+                // 创建备份
+                try
+                {
+                    OperationBackup.CreateQuickBackup(manifestPath);
+                    Log(Localization.Get("Log.ManifestBackupCreated"));
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleException(ex, "创建 manifest.json 备份", showDialog: false);
+                }
+
+            string text;
+            try
+            {
+                text = File.ReadAllText(manifestPath);
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleException(ex, "读取 manifest.json", showDialog: true);
                 return;
             }
 
-            string text = File.ReadAllText(manifestPath);
-
-            if (RemoveInvalidLatestVersionEntries(ref text))
-            {
-                File.WriteAllText(manifestPath, text);
-                AssetDatabase.Refresh();
-                Log("已移除 manifest.json 中的 \"latest\" 占位符，请等待 Unity 刷新。");
-            }
-
-            bool requestedInstall = false;
-            foreach (var pkg in RequiredPackages)
-            {
-                if (TryGetManifestPackageVersion(text, pkg, out var version))
+                if (RemoveInvalidLatestVersionEntries(ref text))
                 {
-                    if (IsValidManifestVersion(version))
+                    File.WriteAllText(manifestPath, text);
+                    AssetDatabase.Refresh();
+                    Log(Localization.Get("Log.LatestRemoved"));
+                }
+
+                progress.UpdateProgress(0.3f, "检查包依赖...");
+                bool requestedInstall = false;
+                int packageIndex = 0;
+                foreach (var pkg in RequiredPackages)
+                {
+                    packageIndex++;
+                    progress.UpdateProgress(0.3f + (packageIndex / (float)RequiredPackages.Length) * 0.5f, $"检查 {pkg}...");
+                    
+                    if (TryGetManifestPackageVersion(text, pkg, out var version))
                     {
-                        Log($"已存在依赖：{pkg} ({version})");
-                        continue;
+                        if (IsValidManifestVersion(version))
+                        {
+                            Log(Localization.Get("Log.PackageExists", pkg, version));
+                            continue;
+                        }
+
+                        Log(Localization.Get("Log.PackageInvalidVersion", pkg, version));
+                    }
+                    else
+                    {
+                        Log(Localization.Get("Log.PackageNotFound", pkg));
                     }
 
-                    Log($"检测到 {pkg} 使用无效版本 \"{version}\"，将重新安装。");
+                    QueuePackageInstall(pkg);
+                    requestedInstall = true;
                 }
-                else
+
+                progress.UpdateProgress(0.9f, requestedInstall ? "等待包安装..." : "完成");
+                if (!requestedInstall)
                 {
-                    Log($"manifest.json 中未找到 {pkg}，准备安装。");
+                    Log(Localization.Get("Log.AllPackagesInstalled"));
                 }
-
-                QueuePackageInstall(pkg);
-                requestedInstall = true;
-            }
-
-            if (!requestedInstall)
-            {
-                Log("所有必需 XR 包均已安装，无需额外操作。");
             }
         }
 
@@ -1083,69 +1268,80 @@ namespace OneClick.VRConverter.Editor
         /// </summary>
         private void ConfigureXrProjectSettings(IEnumerable<BuildTargetGroup> targetGroups = null)
         {
-            var desiredGroups = (targetGroups ?? TargetGroups)?.Distinct().ToArray() ?? Array.Empty<BuildTargetGroup>();
-            if (desiredGroups.Length == 0)
+            using (var progress = new ProgressReporter("配置项目设置", "正在初始化..."))
             {
-                desiredGroups = TargetGroups;
-            }
-
-            var perBuildType = FindType("UnityEditor.XR.Management.XRGeneralSettingsPerBuildTarget, Unity.XR.Management.Editor");
-            var generalType = FindType("UnityEngine.XR.Management.XRGeneralSettings, Unity.XR.Management");
-            var managerType = FindType("UnityEngine.XR.Management.XRManagerSettings, Unity.XR.Management");
-            var metadataStoreType = FindType("UnityEditor.XR.Management.Metadata.XRPackageMetadataStore, Unity.XR.Management.Editor");
-
-            if (perBuildType == null || generalType == null || managerType == null)
-            {
-                Log("未检测到 XR Management 程序集，可能仍在导入。跳过自动配置。");
-                return;
-            }
-
-            if (FindType(OpenXrLoaderTypeName) == null)
-            {
-                Log("未检测到 OpenXR Loader 类型，请确认 com.unity.xr.openxr 包已经导入。");
-                return;
-            }
-
-            var perBuildAsset = GetOrCreateGeneralSettingsAsset(perBuildType);
-            RegisterXrSettingsConfig(perBuildAsset, perBuildType);
-
-            var getMethod = perBuildType.GetMethod("SettingsForBuildTarget", new[] { typeof(BuildTargetGroup) });
-            var setMethod = perBuildType.GetMethod("SetSettingsForBuildTarget", new[] { typeof(BuildTargetGroup), generalType });
-
-            if (getMethod == null || setMethod == null)
-            {
-                Log("XRGeneralSettingsPerBuildTarget API 发生变化，无法自动设置。");
-                return;
-            }
-
-            foreach (var targetGroup in desiredGroups)
-            {
-                var generalSettings = GetOrCreateGeneralSettings(perBuildAsset, targetGroup, generalType, getMethod, setMethod);
-                if (generalSettings == null)
+                var desiredGroups = (targetGroups ?? TargetGroups)?.Distinct().ToArray() ?? Array.Empty<BuildTargetGroup>();
+                if (desiredGroups.Length == 0)
                 {
-                    Log($"无法为 {targetGroup} 创建 XR General Settings。");
-                    continue;
+                    desiredGroups = TargetGroups;
                 }
 
-                EnsureGeneralSettingsDefaults(generalSettings);
-                var managerSettings = GetOrCreateManagerSettings(generalSettings, managerType);
-                if (managerSettings == null)
+                progress.UpdateProgress(0.1f, "检查 XR Management 程序集...");
+                var perBuildType = FindType("UnityEditor.XR.Management.XRGeneralSettingsPerBuildTarget, Unity.XR.Management.Editor");
+                var generalType = FindType("UnityEngine.XR.Management.XRGeneralSettings, Unity.XR.Management");
+                var managerType = FindType("UnityEngine.XR.Management.XRManagerSettings, Unity.XR.Management");
+                var metadataStoreType = FindType("UnityEditor.XR.Management.Metadata.XRPackageMetadataStore, Unity.XR.Management.Editor");
+
+                if (perBuildType == null || generalType == null || managerType == null)
                 {
-                    Log($"无法为 {targetGroup} 创建 XR Manager Settings。");
-                    continue;
+                    Log(Localization.Get("Log.XrManagementNotFound"));
+                    return;
                 }
 
-                if (AssignOpenXrLoader(managerSettings, managerType, metadataStoreType, targetGroup))
+                if (FindType(OpenXrLoaderTypeName) == null)
                 {
-                    Log($"已为 {targetGroup} 启用 OpenXR Loader。");
+                    Log(Localization.Get("Log.OpenXrLoaderNotFound"));
+                    return;
                 }
-                else
+
+                progress.UpdateProgress(0.3f, "创建 XR General Settings...");
+                var perBuildAsset = GetOrCreateGeneralSettingsAsset(perBuildType);
+                RegisterXrSettingsConfig(perBuildAsset, perBuildType);
+
+                var getMethod = perBuildType.GetMethod("SettingsForBuildTarget", new[] { typeof(BuildTargetGroup) });
+                var setMethod = perBuildType.GetMethod("SetSettingsForBuildTarget", new[] { typeof(BuildTargetGroup), generalType });
+
+                if (getMethod == null || setMethod == null)
                 {
-                    Log($"未能为 {targetGroup} 自动绑定 OpenXR Loader，请手动在 Project Settings 中确认。");
+                    Log(Localization.Get("Log.XrApiChanged"));
+                    return;
                 }
+
+                progress.UpdateProgress(0.5f, "配置目标平台...");
+                int groupIndex = 0;
+                foreach (var targetGroup in desiredGroups)
+                {
+                    groupIndex++;
+                    progress.UpdateProgress(0.5f + (groupIndex / (float)desiredGroups.Length) * 0.4f, $"配置 {targetGroup}...");
+                    
+                    var generalSettings = GetOrCreateGeneralSettings(perBuildAsset, targetGroup, generalType, getMethod, setMethod);
+                    if (generalSettings == null)
+                    {
+                        Log(Localization.Get("Log.CannotCreateGeneralSettings", targetGroup));
+                        continue;
+                    }
+
+                    EnsureGeneralSettingsDefaults(generalSettings);
+                    var managerSettings = GetOrCreateManagerSettings(generalSettings, managerType);
+                    if (managerSettings == null)
+                    {
+                        Log(Localization.Get("Log.CannotCreateManagerSettings", targetGroup));
+                        continue;
+                    }
+
+                    if (AssignOpenXrLoader(managerSettings, managerType, metadataStoreType, targetGroup))
+                    {
+                        Log(Localization.Get("Log.OpenXrEnabled", targetGroup));
+                    }
+                    else
+                    {
+                        Log(Localization.Get("Log.OpenXrBindFailed", targetGroup));
+                    }
+                }
+
+                progress.UpdateProgress(0.95f, "保存资源...");
+                AssetDatabase.SaveAssets();
             }
-
-            AssetDatabase.SaveAssets();
         }
 
         private void EnsureDeviceSimulatorConfigured()
@@ -1161,14 +1357,14 @@ namespace OneClick.VRConverter.Editor
 
             if (autoProp == null || prefabProp == null)
             {
-                Log("XR Device Simulator 设置不可写，已跳过自动配置。");
+                Log(Localization.Get("Log.SimulatorNotWritable"));
                 return;
             }
 
             var prefab = FindOrCreateDeviceSimulatorPrefab();
             if (prefab == null)
             {
-                Log("未能找到 XR Device Simulator 预制体，请在 Package Manager 中重新导入 XR Device Simulator Sample。");
+                Log(Localization.Get("Log.SimulatorPrefabNotFound"));
                 PromptDeviceSimulatorSampleImport();
                 return;
             }
@@ -1198,11 +1394,11 @@ namespace OneClick.VRConverter.Editor
             {
                 EditorUtility.SetDirty(settings);
                 AssetDatabase.SaveAssets();
-                Log("已配置 XR Device Simulator，进入 Play 模式即可使用键鼠模拟 VR 设备。");
+                Log(Localization.Get("Log.SimulatorConfigured"));
             }
             else
             {
-                Log("XR Device Simulator 已处于可用状态。");
+                Log(Localization.Get("Log.SimulatorReady"));
             }
         }
 
@@ -1214,7 +1410,7 @@ namespace OneClick.VRConverter.Editor
             {
                 if (logOnFailure)
                 {
-                    Log("当前 XR Interaction Toolkit 版本缺少 XR Device Simulator 设置，已跳过模拟设备配置。");
+                    Log(Localization.Get("Log.SimulatorVersionIncompatible"));
                 }
                 return false;
             }
@@ -1243,7 +1439,8 @@ namespace OneClick.VRConverter.Editor
                     {
                         if (logOnFailure)
                         {
-                            Log($"无法初始化 XR Device Simulator 设置：{ex.Message}");
+                            var errorMsg = ErrorHandler.HandleException(ex, "初始化 XR Device Simulator 设置", showDialog: false);
+                            Log(errorMsg);
                         }
                     }
                 }
@@ -1253,7 +1450,7 @@ namespace OneClick.VRConverter.Editor
             {
                 if (logOnFailure)
                 {
-                    Log("未能创建 XR Device Simulator 设置实例。");
+                    Log(Localization.Get("Log.SimulatorSettingsFailed"));
                 }
                 return false;
             }
@@ -1333,7 +1530,7 @@ namespace OneClick.VRConverter.Editor
         {
             if (TryCopyPackageSampleFolder(DeviceSimulatorPackageId, DeviceSimulatorSampleRelativePath, GeneratedSimulatorFolder, "XR Device Simulator"))
             {
-                Log("已自动导入 XR Device Simulator Sample，位于 Assets/VRConverterGenerated/DeviceSimulator。");
+                Log(Localization.Get("Log.SimulatorSampleImported"));
                 return true;
             }
 
@@ -1350,7 +1547,7 @@ namespace OneClick.VRConverter.Editor
 
             if (TryCopyPackageSampleFolder(DeviceSimulatorPackageId, StarterAssetsSampleRelativePath, GeneratedStarterAssetsFolder, StarterAssetsSampleDisplayName))
             {
-                Log("已复制 Starter Assets Sample，位于 Assets/VRConverterGenerated/StarterAssets。");
+                Log(Localization.Get("Log.StarterAssetsCopied"));
                 return true;
             }
 
@@ -1362,14 +1559,14 @@ namespace OneClick.VRConverter.Editor
             var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssetPath(packageAssetPath);
             if (packageInfo == null)
             {
-                Log($"未能定位 {sampleDisplayName} 所在的包（{packageAssetPath}）。");
+                Log(Localization.Get("Log.SamplePackageNotFound", sampleDisplayName, packageAssetPath));
                 return false;
             }
 
             var sourcePath = Path.Combine(packageInfo.resolvedPath, sampleRelativePath);
             if (!Directory.Exists(sourcePath))
             {
-                Log($"在 {packageInfo.resolvedPath} 中未找到 {sampleDisplayName} Sample（路径：{sampleRelativePath}）。");
+                Log(Localization.Get("Log.SampleNotFound", packageInfo.resolvedPath, sampleDisplayName, sampleRelativePath));
                 return false;
             }
 
@@ -1396,84 +1593,92 @@ namespace OneClick.VRConverter.Editor
         /// </summary>
         private bool ConvertCurrentSceneToVr(RigStrategy strategy = RigStrategy.Auto, bool disableLegacyMainCamera = true)
         {
-            var scene = EditorSceneManager.GetActiveScene();
-            if (!scene.IsValid())
+            using (var progress = new ProgressReporter("转换场景", "正在初始化..."))
             {
-                Log("当前没有打开的场景，无法转换。");
-                return false;
-            }
-
-            if (strategy == RigStrategy.SkipSceneChanges)
-            {
-                Log("已根据专业模式设置，跳过场景转换步骤。");
-                return false;
-            }
-
-            LegacyCameraBindingInfo bindingInfo = LegacyCameraBindingInfo.Empty;
-            if (disableLegacyMainCamera)
-            {
-                bindingInfo = DisableLegacyMainCamera();
-            }
-            else
-            {
-                Log("专业模式：保留原 Main Camera，不自动禁用。");
-            }
-
-            switch (strategy)
-            {
-                case RigStrategy.OnlyUpdateExistingXrOrigin:
-                    if (TryCreateOrUpdateXrOriginRig(createIfMissing: false, bindingInfo: bindingInfo))
-                    {
-                        Log("已更新场景中的 XR Origin。");
-                        return true;
-                    }
-
-                    Log("未找到现有 XR Origin，且策略为\"仅更新\"，未做额外改动。");
+                var scene = EditorSceneManager.GetActiveScene();
+                if (!scene.IsValid())
+                {
+                    Log(Localization.Get("Log.NoSceneOpen"));
                     return false;
-                case RigStrategy.ForceFallbackRig:
-                    CreateFallbackVrRig(bindingInfo);
-                    return true;
-                default:
-                    break;
-            }
+                }
 
-            if (TryCreateOrUpdateXrOriginRig(bindingInfo: bindingInfo))
-            {
-                Log("XR Origin (XR Interaction Toolkit) 已创建/更新。");
+                if (strategy == RigStrategy.SkipSceneChanges)
+                {
+                    Log(Localization.Get("Log.SkipSceneChanges"));
+                    return false;
+                }
+
+                progress.UpdateProgress(0.2f, "处理旧相机...");
+                LegacyCameraBindingInfo bindingInfo = LegacyCameraBindingInfo.Empty;
+                if (disableLegacyMainCamera)
+                {
+                    bindingInfo = DisableLegacyMainCamera();
+                }
+                else
+                {
+                    Log(Localization.Get("Log.PreserveLegacyCamera"));
+                }
+
+                progress.UpdateProgress(0.4f, "创建 XR Origin...");
+                switch (strategy)
+                {
+                    case RigStrategy.OnlyUpdateExistingXrOrigin:
+                        if (TryCreateOrUpdateXrOriginRig(createIfMissing: false, bindingInfo: bindingInfo))
+                        {
+                            Log(Localization.Get("Log.XrOriginUpdated"));
+                            return true;
+                        }
+
+                        Log(Localization.Get("Log.XrOriginNotFound"));
+                        return false;
+                    case RigStrategy.ForceFallbackRig:
+                        progress.UpdateProgress(0.6f, "创建备用 VR Rig...");
+                        CreateFallbackVrRig(bindingInfo);
+                        return true;
+                    default:
+                        break;
+                }
+
+                progress.UpdateProgress(0.5f, "创建或更新 XR Origin...");
+                if (TryCreateOrUpdateXrOriginRig(bindingInfo: bindingInfo))
+                {
+                    progress.UpdateProgress(0.9f, "保存场景...");
+                    EditorSceneManager.MarkSceneDirty(scene);
+                    EditorSceneManager.SaveScene(scene);
+                    Log(Localization.Get("Log.XrOriginCreated"));
+                    return true;
+                }
+
+                progress.UpdateProgress(0.7f, "回退到备用 VR Rig...");
+                Log(Localization.Get("Log.FallbackRigUsed"));
+                CreateFallbackVrRig(bindingInfo);
+                progress.UpdateProgress(0.9f, "保存场景...");
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
                 return true;
             }
-
-            Log("XR Interaction Toolkit 或 XR Core Utils 不可用，使用基础 VRRig。");
-            CreateFallbackVrRig(bindingInfo);
-            return true;
         }
 
         private void HandleConversionCompleted()
         {
             _lastConversionSucceeded = true;
-            Log("VR 场景转换完成，可以使用下方 Git 按钮创建备份或回滚。");
+            Log(Localization.Get("Log.ConversionComplete"));
             if (!string.IsNullOrEmpty(_lastBaselineCommitHash))
             {
-                Log($"已记录转换前的 Git 提交：{_lastBaselineCommitHash}");
+                Log(Localization.Get("Log.BaselineRecorded", _lastBaselineCommitHash));
             }
             
             // 显示用户友好的成功提示对话框
-            string successMessage = "🎉 VR 转换成功！\n\n" +
-                "您的项目已成功转换为 VR 项目。\n\n" +
-                "主要变更：\n" +
-                "• XR Origin 已添加到场景\n" +
-                "• 左右手控制器已配置\n" +
-                "• 项目设置已更新为 VR 模式\n" +
-                "• 手部追踪同步已优化\n\n";
+            string successMessage = Localization.Get("Dialog.ConversionSuccess.Message");
             
             if (!string.IsNullOrEmpty(_lastBaselineCommitHash))
             {
-                successMessage += $"已记录转换前的 Git 提交：{_lastBaselineCommitHash}\n\n";
+                successMessage += Localization.Get("Dialog.ConversionSuccess.Baseline", _lastBaselineCommitHash);
             }
             
-            successMessage += "提示：可以使用窗口下方的 Git 按钮创建备份或回滚。";
+            successMessage += Localization.Get("Dialog.ConversionSuccess.Hint");
             
-            EditorUtility.DisplayDialog("转换成功", successMessage, "好的，我知道了");
+            EditorUtility.DisplayDialog(Localization.Get("Dialog.ConversionSuccess"), successMessage, Localization.Get("Button.IGotIt"));
         }
 
         #region XR Project Settings helpers
@@ -1495,7 +1700,7 @@ namespace OneClick.VRConverter.Editor
             asset.name = "XRGeneralSettingsPerBuildTarget";
             AssetDatabase.CreateAsset(asset, GeneratedGeneralSettingsAsset);
             AssetDatabase.SaveAssets();
-            Log($"已创建 XRGeneralSettingsPerBuildTarget 资产：{GeneratedGeneralSettingsAsset}");
+            Log(Localization.Get("Log.XrGeneralSettingsAssetCreated", GeneratedGeneralSettingsAsset));
             return asset;
         }
 
@@ -1512,7 +1717,7 @@ namespace OneClick.VRConverter.Editor
             if (existing != perBuildAsset)
             {
                 EditorBuildSettings.AddConfigObject(key, perBuildAsset, true);
-                Log($"已注册 XR General Settings（{key}）。");
+                Log(Localization.Get("Log.XrGeneralSettingsRegistered", key));
             }
         }
 
@@ -1534,7 +1739,7 @@ namespace OneClick.VRConverter.Editor
             AssetDatabase.AddObjectToAsset(general, perBuildAsset);
             setMethod.Invoke(perBuildAsset, new object[] { targetGroup, general });
             EditorUtility.SetDirty(perBuildAsset);
-            Log($"已创建 {targetGroup} 的 XR General Settings。");
+            Log(Localization.Get("Log.XrGeneralSettingsCreated", targetGroup));
             return general;
         }
 
@@ -1580,7 +1785,7 @@ namespace OneClick.VRConverter.Editor
             managerProp.objectReferenceValue = manager;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(generalSettings);
-            Log($"已创建 {generalSettings.name} 对应的 XR Manager Settings。");
+            Log(Localization.Get("Log.XrManagerSettingsCreated", generalSettings.name));
             return manager;
         }
 
@@ -1624,7 +1829,8 @@ namespace OneClick.VRConverter.Editor
                     }
                     catch (Exception ex)
                     {
-                        Log($"AssignLoader 调用失败：{ex.Message}");
+                        var errorMsg = ErrorHandler.HandleException(ex, "AssignLoader 调用", showDialog: false);
+                        Log(errorMsg);
                     }
                 }
             }
@@ -1763,7 +1969,7 @@ namespace OneClick.VRConverter.Editor
             var go = new GameObject(defaultObjectName);
             Undo.RegisterCreatedObjectUndo(go, $"Create {defaultObjectName}");
             var component = go.AddComponent(type);
-            Log($"已创建 {defaultObjectName}。");
+            Log(Localization.Get("Log.DefaultObjectCreated", defaultObjectName));
             return component;
         }
 
@@ -1799,7 +2005,7 @@ namespace OneClick.VRConverter.Editor
                 if (syncScriptType != null && controllerGo.GetComponent(syncScriptType) == null)
                 {
                     controllerGo.AddComponent(syncScriptType);
-                    Log($"已为 {controllerGo.name} 添加手部追踪同步优化脚本。");
+                    Log(Localization.Get("Log.HandTrackingSyncAdded", controllerGo.name));
                 }
             }
 
@@ -1825,11 +2031,11 @@ namespace OneClick.VRConverter.Editor
                 // 应用原 Main Camera 的绑定信息
                 ApplyBindingInfo(existingRig, bindingInfo);
                 
-                Log("已创建 VRRig 根对象。");
+                Log(Localization.Get("Log.VrRigRootCreated"));
             }
             else
             {
-                Log("场景中已存在 VRRig，对其进行复用/更新。");
+                Log(Localization.Get("Log.VrRigExists"));
                 // 如果原 Main Camera 有父对象且当前 VRRig 没有绑定，尝试绑定
                 if (bindingInfo.IsValid && bindingInfo.Parent != null && existingRig.transform.parent != bindingInfo.Parent)
                 {
@@ -1848,7 +2054,7 @@ namespace OneClick.VRConverter.Editor
             CreateChild(existingRig.transform, "LeftHand Controller");
             CreateChild(existingRig.transform, "RightHand Controller");
 
-            Log("基础 VR Rig 已创建/更新。");
+            Log(Localization.Get("Log.VrRigComplete"));
         }
 
         private GameObject CreateChild(Transform parent, string name)
@@ -1877,7 +2083,7 @@ namespace OneClick.VRConverter.Editor
             targetGo.transform.localPosition = bindingInfo.LocalPosition;
             targetGo.transform.localRotation = bindingInfo.LocalRotation;
             
-            Log($"已将 {targetGo.name} 绑定到原主相机的父对象：{bindingInfo.Parent.name}，并保持原位置和旋转。");
+            Log(Localization.Get("Log.CameraBinding", targetGo.name, bindingInfo.Parent.name));
         }
 
         /// <summary>
@@ -1888,7 +2094,7 @@ namespace OneClick.VRConverter.Editor
             var mainCam = Camera.main;
             if (mainCam == null)
             {
-                Log("未找到标签为 MainCamera 的原主相机。");
+                Log(Localization.Get("Log.MainCameraNotFound"));
                 return LegacyCameraBindingInfo.Empty;
             }
 
@@ -1901,11 +2107,11 @@ namespace OneClick.VRConverter.Editor
             };
 
             mainCam.gameObject.SetActive(false);
-            Log($"已禁用原主相机：{mainCam.gameObject.name}");
+            Log(Localization.Get("Log.MainCameraDisabled", mainCam.gameObject.name));
             
             if (bindingInfo.Parent != null)
             {
-                Log($"检测到原主相机绑定在：{bindingInfo.Parent.name}，新的 XR Origin 将继承此绑定关系。");
+                Log(Localization.Get("Log.CameraBindingDetected", bindingInfo.Parent.name));
             }
 
             return bindingInfo;
@@ -1947,7 +2153,7 @@ namespace OneClick.VRConverter.Editor
         {
             if (TryEnsureStarterAssetsSampleAvailable())
             {
-                EditorUtility.DisplayDialog("提示", "已自动复制 Starter Assets Sample，稍后可重新执行操作。", "好的");
+                EditorUtility.DisplayDialog(Localization.Get("Dialog.Tip"), Localization.Get("Dialog.SampleAutoCopied"), Localization.Get("Button.Good"));
                 return;
             }
 
@@ -1993,16 +2199,16 @@ namespace OneClick.VRConverter.Editor
                 case 0:
                     if (TryImportPackageSample(packageName, sampleDisplayName))
                     {
-                        EditorUtility.DisplayDialog("导入完成", $"{sampleDisplayName} Sample 已导入，工具会在下一次执行时自动继续。", "好的");
+                        EditorUtility.DisplayDialog(Localization.Get("Dialog.ImportComplete"), Localization.Get("Dialog.SampleImported", sampleDisplayName), Localization.Get("Button.Good"));
                     }
                     else
                     {
-                        EditorUtility.DisplayDialog("自动导入失败", $"未能自动导入 {sampleDisplayName} Sample，将尝试打开 Package Manager。", "好的");
+                        EditorUtility.DisplayDialog(Localization.Get("Dialog.AutoImportFailed"), Localization.Get("Dialog.SampleImportFailed", sampleDisplayName), Localization.Get("Button.Good"));
                         TryOpenPackageManagerSamples(packageName, sampleDisplayName);
                     }
                     break;
                 case 1:
-                    Log($"用户选择稍后导入 {sampleDisplayName} Sample。");
+                    Log(Localization.Get("Log.UserDeferredSample", sampleDisplayName));
                     break;
                 case 2:
                     TryOpenPackageManagerSamples(packageName, sampleDisplayName);
@@ -2089,12 +2295,13 @@ namespace OneClick.VRConverter.Editor
                 {
                     importMethod.Invoke(sample, args);
                     AssetDatabase.Refresh();
-                    Log($"已自动导入 {sampleDisplayName} Sample。");
+                    Log(Localization.Get("Log.SampleAutoImported", sampleDisplayName));
                     return true;
                 }
                 catch (Exception ex)
                 {
-                    Log($"自动导入 {sampleDisplayName} 失败：{ex.Message}");
+                    var errorMsg = ErrorHandler.HandleException(ex, $"自动导入 {sampleDisplayName}", showDialog: false);
+                    Log(errorMsg);
                     return false;
                 }
             }
@@ -2108,20 +2315,20 @@ namespace OneClick.VRConverter.Editor
             {
                 var msg = $"已打开 Package Manager，已尝试定位 {packageName}。请在 Samples 面板中导入 {sampleDisplayName}。";
                 Log(msg);
-                EditorUtility.DisplayDialog("已打开 Package Manager", msg, "好的");
+                EditorUtility.DisplayDialog(Localization.Get("Dialog.PackageManagerOpened"), msg, Localization.Get("Button.Good"));
                 return true;
             }
 
             if (EditorApplication.ExecuteMenuItem("Window/Package Manager"))
             {
-                var fallbackMsg = $"已打开 Package Manager。请手动选择 {packageName} 并导入 {sampleDisplayName} Sample。";
+                var fallbackMsg = Localization.Get("Log.PackageManagerOpened", packageName, sampleDisplayName);
                 Log(fallbackMsg);
-                EditorUtility.DisplayDialog("请手动导入", fallbackMsg, "好的");
+                EditorUtility.DisplayDialog(Localization.Get("Dialog.ManualImport"), fallbackMsg, Localization.Get("Button.Good"));
                 return true;
             }
 
-            Log("未能自动打开 Package Manager，请通过菜单 Window/Package Manager 手动打开。");
-            EditorUtility.DisplayDialog("无法打开 Package Manager", "请从菜单 Window/Package Manager 手动打开，然后导入所需 Sample。", "好的");
+            Log(Localization.Get("Log.PackageManagerOpened", packageName, sampleDisplayName));
+            EditorUtility.DisplayDialog(Localization.Get("Dialog.CannotOpenPackageManager"), Localization.Get("Dialog.PackageManagerManual"), Localization.Get("Button.Good"));
             return false;
         }
 
@@ -2169,7 +2376,8 @@ namespace OneClick.VRConverter.Editor
                     }
                     catch (Exception ex)
                     {
-                        Log($"打开 Package Manager 失败：{ex.Message}");
+                        var errorMsg = ErrorHandler.HandleException(ex, "打开 Package Manager", showDialog: false);
+                        Log(errorMsg);
                     }
                 }
             }
@@ -2325,7 +2533,7 @@ namespace OneClick.VRConverter.Editor
             actionAssetsProp.InsertArrayElementAtIndex(actionAssetsProp.arraySize);
             actionAssetsProp.GetArrayElementAtIndex(actionAssetsProp.arraySize - 1).objectReferenceValue = defaultAsset;
             so.ApplyModifiedPropertiesWithoutUndo();
-            Log("已将“XRI Default Input Actions”绑定到 XR Input Action Manager，以自动启用输入映射。");
+            Log(Localization.Get("Log.InputActionAssetBound"));
         }
 
         private void ConfigureActionBasedController(Component controller, bool isRightHand)
@@ -2357,7 +2565,7 @@ namespace OneClick.VRConverter.Editor
             if (hasChanges)
             {
                 so.ApplyModifiedPropertiesWithoutUndo();
-                Log($"已为{(isRightHand ? "右手" : "左手")} Action Based Controller 绑定默认输入动作。");
+                Log(Localization.Get("Log.InputActionBound", isRightHand ? Localization.Get("Log.Hand.Right") : Localization.Get("Log.Hand.Left")));
             }
         }
 
@@ -2440,7 +2648,7 @@ namespace OneClick.VRConverter.Editor
             reference.name = cacheKey;
             AssetDatabase.CreateAsset(reference, assetPath);
             AssetDatabase.SaveAssets();
-            Log($"已生成输入动作引用资产：{assetPath}");
+            Log(Localization.Get("Log.InputActionReferenceCreated", assetPath));
             return reference;
         }
 
@@ -2456,9 +2664,9 @@ namespace OneClick.VRConverter.Editor
             {
                 var candidatesLabel = mapNames != null && mapNames.Count > 0
                     ? string.Join(" / ", mapNames)
-                    : "<未指定 Action Map>";
+                    : Localization.Get("Log.ActionMapNotSpecified");
                 var actionLabel = string.Join(" / ", actionNames);
-                Log($"无法创建输入动作引用（{candidatesLabel}/{actionLabel}）：请确认“XRI Default Input Actions”中包含该 Action Map。");
+                Log(Localization.Get("Log.InputActionReferenceFailed", candidatesLabel, actionLabel));
                 return false;
             }
 
@@ -2469,7 +2677,8 @@ namespace OneClick.VRConverter.Editor
             catch (Exception ex)
             {
                 var mapName = action.actionMap != null ? action.actionMap.name : "<未知 Action Map>";
-                Log($"无法创建输入动作引用（{mapName}/{action.name}）：{ex.Message}");
+                var errorMsg = ErrorHandler.HandleException(ex, $"创建输入动作引用（{mapName}/{action.name}）", showDialog: false);
+                Log(errorMsg);
                 return false;
             }
 
@@ -2570,7 +2779,7 @@ namespace OneClick.VRConverter.Editor
 
                 if (asset == null)
                 {
-                    Log("未在项目中找到“XRI Default Input Actions.inputactions”。请在 Package Manager 中重新导入 XR Interaction Toolkit 的 Starter Assets。");
+                    Log(Localization.Get("Log.InputActionsNotFound"));
                     PromptStarterAssetsImport();
                     return null;
                 }
@@ -2603,19 +2812,19 @@ namespace OneClick.VRConverter.Editor
         {
             if (!IsGitAssistantInstalled())
             {
-                EditorUtility.DisplayDialog("提示", "当前项目未安装版本控制助手，无法执行快速备份。", "好的");
+                EditorUtility.DisplayDialog(Localization.Get("Dialog.Tip"), Localization.Get("Dialog.VersionControlNotInstalled"), Localization.Get("Button.Good"));
                 return;
             }
 
             if (TryAutoBackupWithGitAssistant(out var message))
             {
                 Log(message);
-                EditorUtility.DisplayDialog("备份完成", message, "好的");
+                EditorUtility.DisplayDialog(Localization.Get("Dialog.BackupComplete"), message, Localization.Get("Button.Good"));
                 MarkBackupConfirmed();
             }
             else
             {
-                EditorUtility.DisplayDialog("备份失败", message, "好的");
+                EditorUtility.DisplayDialog(Localization.Get("Dialog.BackupFailed"), message, Localization.Get("Button.Good"));
             }
         }
 
@@ -2623,21 +2832,21 @@ namespace OneClick.VRConverter.Editor
         {
             if (!IsGitAssistantInstalled())
             {
-                EditorUtility.DisplayDialog("无法回滚", "请先安装版本控制助手后再尝试回滚。", "好的");
+                EditorUtility.DisplayDialog(Localization.Get("Dialog.CannotRollback"), Localization.Get("Dialog.RollbackVersionControlRequired"), Localization.Get("Button.Good"));
                 return;
             }
 
             if (string.IsNullOrEmpty(_lastBaselineCommitHash))
             {
-                EditorUtility.DisplayDialog("无法回滚", "当前会话未记录转换前的 Git 提交，无法执行自动回滚。", "好的");
+                EditorUtility.DisplayDialog(Localization.Get("Dialog.CannotRollback"), Localization.Get("Dialog.RollbackNoBaseline"), Localization.Get("Button.Good"));
                 return;
             }
 
             if (!EditorUtility.DisplayDialog(
-                    "确认回滚？",
-                    $"将使用 git reset --hard {_lastBaselineCommitHash} 恢复到转换前的版本。\n\n该操作会丢弃当前所有未提交的改动，确定要继续吗？",
-                    "确认回滚",
-                    "取消"))
+                    Localization.Get("Dialog.ConfirmRollback"),
+                    Localization.Get("Dialog.RollbackWarning", _lastBaselineCommitHash),
+                    Localization.Get("Button.ConfirmRollback"),
+                    Localization.Get("Button.Cancel")))
             {
                 return;
             }
@@ -2646,14 +2855,14 @@ namespace OneClick.VRConverter.Editor
             {
                 AssetDatabase.Refresh();
                 _lastConversionSucceeded = false;
-                EditorUtility.DisplayDialog("回滚完成", "已恢复到转换前的 Git 版本。", "好的");
-                Log($"Git 回滚完成：{output}");
+                EditorUtility.DisplayDialog(Localization.Get("Dialog.RollbackComplete"), Localization.Get("Dialog.RollbackRestored"), Localization.Get("Button.Good"));
+                Log(Localization.Get("Log.RollbackComplete", output));
             }
             else
             {
-                var reason = string.IsNullOrWhiteSpace(error) ? "Git 命令执行失败，请查看控制台。" : error;
-                EditorUtility.DisplayDialog("回滚失败", reason, "好的");
-                Log($"回滚失败：{reason}");
+                var reason = string.IsNullOrWhiteSpace(error) ? Localization.Get("Log.GitCommandFailed") : error;
+                EditorUtility.DisplayDialog(Localization.Get("Dialog.RollbackFailed"), reason, Localization.Get("Button.Good"));
+                Log(Localization.Get("Log.RollbackFailed", reason));
             }
         }
 
@@ -2667,10 +2876,10 @@ namespace OneClick.VRConverter.Editor
             if (!IsGitAssistantInstalled())
             {
                 bool confirmed = EditorUtility.DisplayDialog(
-                    "执行前请备份",
-                    $"即将执行 {actionName}，该操作会修改 XR 依赖、项目设置以及当前场景。\n\n请确认你已经手动保存场景并完成一次备份或 Git 提交。",
-                    "我已完成备份",
-                    "取消");
+                    Localization.Get("Dialog.BackupBeforeAction"),
+                    Localization.Get("Dialog.BackupBeforeActionMessage", actionName),
+                    Localization.Get("Button.BackupConfirmed"),
+                    Localization.Get("Button.Cancel"));
                 if (confirmed)
                 {
                     MarkBackupConfirmed();
@@ -2681,11 +2890,11 @@ namespace OneClick.VRConverter.Editor
             while (true)
             {
                 int option = EditorUtility.DisplayDialogComplex(
-                    "执行前请先备份",
-                    $"执行 {actionName} 会批量修改 manifest、Project Settings 与当前场景。\n\n建议使用版本控制助手创建备份提交，或者确认已完成其他备份手段。",
-                    "我已完成备份",
-                    "取消",
-                    "使用版本控制助手快速备份");
+                    Localization.Get("Dialog.BackupBeforeActionTitle"),
+                    Localization.Get("Dialog.BackupBeforeActionMessage2", actionName),
+                    Localization.Get("Button.BackupConfirmed"),
+                    Localization.Get("Button.Cancel"),
+                    Localization.Get("Button.UseVersionControlBackup"));
 
                 switch (option)
                 {
@@ -2698,12 +2907,12 @@ namespace OneClick.VRConverter.Editor
                         if (TryAutoBackupWithGitAssistant(out var message))
                         {
                             Log(message);
-                            EditorUtility.DisplayDialog("备份完成", message, "好的");
+                            EditorUtility.DisplayDialog(Localization.Get("Dialog.BackupComplete"), message, Localization.Get("Button.Good"));
                             MarkBackupConfirmed();
                             return true;
                         }
 
-                        if (!EditorUtility.DisplayDialog("备份失败", $"{message}\n\n需要重试吗？", "重试", "取消"))
+                        if (!EditorUtility.DisplayDialog(Localization.Get("Dialog.BackupFailed"), $"{message}\n\n{Localization.Get("Dialog.BackupRetry")}", Localization.Get("Button.Retry"), Localization.Get("Button.Cancel")))
                         {
                             return false;
                         }
@@ -2740,12 +2949,12 @@ namespace OneClick.VRConverter.Editor
             if (TryGetCurrentGitHead(out var hash))
             {
                 _lastBaselineCommitHash = hash;
-                Log($"已记录当前 Git 提交 {hash}，可在成功后回滚。");
+                Log(Localization.Get("Log.GitCommitRecorded", hash));
             }
             else
             {
                 _lastBaselineCommitHash = string.Empty;
-                Log("未能记录当前 Git 提交，可能尚未初始化仓库。");
+                Log(Localization.Get("Log.GitCommitNotRecorded"));
             }
         }
 
@@ -2756,7 +2965,7 @@ namespace OneClick.VRConverter.Editor
             {
                 if (!string.IsNullOrWhiteSpace(error))
                 {
-                    Log($"获取 Git 提交失败：{error}");
+                    Log(Localization.Get("Log.GitCommitFetchFailed", error));
                 }
                 return false;
             }
@@ -2862,7 +3071,7 @@ namespace OneClick.VRConverter.Editor
             }
             catch (Exception ex)
             {
-                error = ex.Message;
+                error = ErrorHandler.HandleException(ex, "执行 Git 命令", showDialog: false);
                 return false;
             }
 
@@ -2904,12 +3113,13 @@ namespace OneClick.VRConverter.Editor
             {
                 var request = Client.Add(packageName);
                 _pendingAddRequests.Add(request);
-                Log($"已向 Package Manager 提交安装请求：{packageName}");
+                Log(Localization.Get("Log.PackageInstallRequested", packageName));
                 StartMonitoringPackageInstalls();
             }
             catch (Exception ex)
             {
-                Log($"无法安装 {packageName}：{ex.Message}");
+                var errorMsg = ErrorHandler.HandleException(ex, $"安装 {packageName}", showDialog: false);
+                Log(errorMsg);
             }
         }
 
@@ -2932,15 +3142,15 @@ namespace OneClick.VRConverter.Editor
 
                 if (request.Status == StatusCode.Success)
                 {
-                    Log($"包安装成功：{request.Result.packageId}");
+                    Log(Localization.Get("Log.PackageInstallSuccess", request.Result.packageId));
                 }
                 else if (request.Status == StatusCode.Failure)
                 {
-                    Log($"包安装失败：{request.Error?.message}");
+                    Log(Localization.Get("Log.PackageInstallFailed", request.Error?.message));
                 }
                 else
                 {
-                    Log($"包安装状态：{request.Status}");
+                    Log(Localization.Get("Log.PackageInstallStatus", request.Status));
                 }
 
                 _pendingAddRequests.RemoveAt(i);
@@ -2969,7 +3179,7 @@ namespace OneClick.VRConverter.Editor
 
                     manifestText = manifestText.Remove(lineStart, lineEnd - lineStart);
                     removed = true;
-                    Log($"移除了 manifest.json 中 {pkg} 的 \"latest\" 版本约束。");
+                    Log(Localization.Get("Log.ManifestVersionRemoved", pkg));
                 }
             }
 
