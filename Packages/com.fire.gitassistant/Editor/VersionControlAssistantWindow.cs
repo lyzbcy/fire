@@ -1032,6 +1032,49 @@ namespace Fire.VersionControlAssistant
                     }
                 }
             }
+
+            var entryRect = GUILayoutUtility.GetLastRect();
+            if (CanPull)
+            {
+                EditorGUIUtility.AddCursorRect(entryRect, MouseCursor.Link);
+            }
+
+            HandleCommitEntryClick(entryRect, entry);
+        }
+
+        private void HandleCommitEntryClick(Rect rect, in GitCommitEntry entry)
+        {
+            var evt = Event.current;
+            if (evt.type == EventType.MouseUp && evt.button == 0 && rect.Contains(evt.mousePosition))
+            {
+                PromptHistoricalPull(entry);
+                evt.Use();
+            }
+        }
+
+        private void PromptHistoricalPull(in GitCommitEntry entry)
+        {
+            if (!CanPull)
+            {
+                _errorMessage = GitLocalization.Tr("errors.pushTargetMissing");
+                return;
+            }
+
+            var confirmed = EditorUtility.DisplayDialog(
+                GitLocalization.Tr("log.pullDialogTitle"),
+                GitLocalization.Tr(
+                    "log.pullDialogMessage",
+                    entry.Hash,
+                    string.IsNullOrEmpty(entry.Message) ? "-" : entry.Message,
+                    _remoteName,
+                    _pushBranch),
+                GitLocalization.Tr("log.pullDialogConfirm"),
+                GitLocalization.Tr("log.pullDialogCancel"));
+
+            if (confirmed)
+            {
+                HandleHistoricalPull(_remoteName, _pushBranch, entry.Hash);
+            }
         }
 
         private void DrawTimelineGizmo(Rect rect, int index, int total, string author)
