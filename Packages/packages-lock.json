@@ -1,23 +1,5 @@
 {
   "dependencies": {
-    "com.fire.focusoptimizer": {
-      "version": "file:com.fire.focusoptimizer",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "com.fire.vcsassistant": {
-      "version": "file:com.fire.gitassistant",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "com.fire.vrconverter": {
-      "version": "file:com.fire.vrconverter",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.unity.asset-store-tools": {
       "version": "file:com.unity.asset-store-tools",
       "depth": 0,
