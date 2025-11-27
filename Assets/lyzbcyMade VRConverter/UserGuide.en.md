@@ -10,6 +10,13 @@
    - **Step 1: Check and Add XR Dependencies Only**
    - **Step 2: Configure XR Settings + Create/Update Scene VR Rig**
 
+## 界面速览
+
+- **状态横幅**：窗口顶部以色块标签展示当前目标平台、执行阶段与依赖检查结果；缺少依赖或编译中时会自动转为警示色。
+- **步骤卡片**：三个操作步骤均为卡片式布局，左侧说明本阶段动作与耗时，右侧主按钮可直接执行，执行中会显示进度与禁用态。
+- **执行日志**：底部卡片实时滚动输出操作详情，配合“复制日志”按钮以及成功/失败提示，方便排查。
+- **平台切换与结果提示**：平台选择器、XR Rig 生成结果、错误提示都以统一的标签样式呈现，与 README 描述保持一致。
+
 ## Recommended Workflow: Execute All Steps
 
 1. Click **"Execute All Steps (Recommended)"**.

@@ -13,6 +13,13 @@ One-Click VR Project Converter helps you quickly configure a basic VR environmen
 - **Input Action Auto-Binding**: Automatically copies and binds XRI Default Input Actions from Starter Assets Sample.
 - **Platform Support**: Configures XR settings for Standalone and Android platforms.
 
+## 界面体验亮点
+
+- 顶部状态横幅用色块展示目标平台、执行步骤、包依赖检查结果，并在风险时自动高亮提示。
+- “Execute All / Step 1 / Step 2” 三张卡片整合了步骤说明、预期耗时与按钮，整个流程更图形化。
+- 执行日志区域沿用卡片化设计，滚动时会保留标题与状态，使排查进度更友好。
+- 平台切换、Rig 生成结果、错误提示都拥有一致的标签样式，方便截图到交付文档。
+
 ## Installation
 
 1. Keep the `Assets/lyzbcyMade VRConverter` folder in your project; Unity will recognize it as a local package.

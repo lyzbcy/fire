@@ -11,6 +11,13 @@ Focus Stutter Optimizer is designed to reduce Unity editor stuttering when regai
 - **Refresh Performance Statistics**: Records the last refresh duration and trigger method, helping teams identify slow compilation/import issues.
 - **Safe Mode**: Default behavior does not modify project settings; all options can be toggled independently.
 
+## 新版界面亮点
+
+- 顶部英雄横幅（Hero Banner）会以渐变背景展示插件启用状态、当前策略、检测到的外部改动数量以及最近一次刷新耗时，方便团队快速了解风险。
+- 快速操作条采用图标+文案的卡片式按钮设计，任何刷新模式下都能一键“立即刷新”或“恢复自动刷新”。
+- 刷新模式区域新增胶囊切换与节流进度条，调节延迟时可以直接看到实时比例与建议区间。
+- 统计卡与通知区域沿用统一的卡片化语言，文档所述的关键指标在界面中都有直观反馈。
+
 ## Installation
 
 1. Keep the `Assets/lyzbcyMade FocusOptimizer` folder in your project; Unity will recognize it as a local package.

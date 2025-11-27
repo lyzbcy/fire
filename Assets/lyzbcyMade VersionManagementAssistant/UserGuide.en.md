@@ -5,6 +5,13 @@
 2. Navigate to `Tools > Version Control Assistant`.
 3. The window can be docked like any other Unity editor panel.
 
+## 界面速览
+
+- **英雄信息卡**：窗口顶部的渐变卡片同时展示当前分支、远端、未推送数量与最近一次拉取时间，并提供帮助链接，方便团队成员同步上下文。
+- **操作工具条**：Refresh/Stage All/Commit/Push/Pull 统一采用图标+文字的卡片式按钮，并根据远端/分支可用性自动启用或禁用。
+- **三栏布局**：左侧为目录分组的改动树，中间/右侧分别为提交表单与最近提交列表，底部是 `git log --graph --oneline` 日志区，全部使用一致的卡片化视觉。
+- **偏好与通知入口**：右上角的齿轮按钮用于打开设置及切换语言，旁边的消息图标会罗列 Git 执行提示。
+
 ## Initial Setup
 1. Confirm that `git` is installed on the operating system and accessible from the command line.
 2. In the toolbar, enter your default remote (e.g., `origin`) and branch (e.g., `main`).

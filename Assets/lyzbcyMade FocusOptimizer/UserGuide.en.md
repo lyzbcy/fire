@@ -6,6 +6,13 @@
 2. Navigate to `Tools > Focus Stutter Optimizer > Main Window`.
 3. The window can be docked like any other Unity editor panel.
 
+## 界面速览
+
+- **英雄横幅**：窗口顶部的渐变背景区域会实时展示插件启用状态、所选刷新模式、最近一次检测到的外部改动数量与刷新耗时，并附带颜色提示；若外部改动超过阈值，标签会转为警示色。
+- **快捷操作条**：位于横幅下方，提供图标化的“快速刷新”“恢复自动刷新”按钮，任何刷新策略下都能即时触发。
+- **刷新策略卡片**：以卡片形式排列，每块区域提供标题+说明+操作控件。刷新模式选择器使用胶囊按钮，限流模式下会出现延迟进度条，便于视觉化调节。
+- **统计与辅助信息**：底部保留刷新统计、状态说明与折叠式帮助文本，风格与上方卡片一致，便于截图/文档引用。
+
 ## Initial Setup
 
 1. On first launch, a "Recommended Configuration" card appears at the top. Click **"Apply Recommended Configuration"** to enable throttled refresh (1.5s delay), pause-on-focus-loss, external change monitoring, and console notifications.

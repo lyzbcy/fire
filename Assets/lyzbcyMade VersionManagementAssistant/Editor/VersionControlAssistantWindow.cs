@@ -10,7 +10,7 @@ namespace Fire.VersionControlAssistant
     public sealed class VersionControlAssistantWindow : EditorWindow
     {
         private const float RightPanelMinWidth = 320f;
-        private const string HelpUrl = "https://lyzbcy.github.io/posts/Unity%E6%8F%92%E4%BB%B6-Git%E5%8A%A9%E6%89%8B%E5%BC%80%E5%8F%91%E6%8A%A5%E5%91%8A/";
+        private const string HelpUrl = "https://lyzbcy.github.io/posts/Unity%E6%8F%92%E4%BB%B6-%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86%E5%8A%A9%E6%89%8B%E5%BC%80%E5%8F%91%E6%8A%A5%E5%91%8A/";
         private const float LogEntryApproxHeight = 74f;
 
         private readonly List<string> _remoteOptions = new();
