@@ -3659,6 +3659,25 @@ namespace OneClick.VRConverter.Editor
                     }
                 }
 
+                // 移除 VRHandTrackingSync 组件（如果存在）
+                progress.UpdateProgress(0.85f, "清理 VR 相关组件...");
+                var vrHandTrackingSyncType = Type.GetType("VRHandTrackingSync, Assembly-CSharp");
+                if (vrHandTrackingSyncType != null)
+                {
+                    var allSyncComponents = UnityEngine.Object.FindObjectsOfType(vrHandTrackingSyncType, true);
+                    if (allSyncComponents != null && allSyncComponents.Length > 0)
+                    {
+                        foreach (var component in allSyncComponents)
+                        {
+                            if (component is Component comp)
+                            {
+                                Undo.DestroyObjectImmediate(comp);
+                            }
+                        }
+                        Log(Localization.Get("Log.VrHandTrackingSyncRemoved", allSyncComponents.Length));
+                    }
+                }
+
                 progress.UpdateProgress(0.9f, "保存场景...");
                 EditorSceneManager.MarkSceneDirty(scene);
                 EditorSceneManager.SaveScene(scene);
