@@ -257,6 +257,9 @@ namespace OneClick.VRConverter.Editor
             AddTranslation("Log.InputActionManagerRemoved", "已移除 XR Input Action Manager", "XR Input Action Manager removed", "XR Input Action Managerを削除しました");
             AddTranslation("Log.GeneratedVrAssetsCleaned", "已清理生成的 VR 资源目录", "Cleaned up generated VR assets directory", "生成されたVRリソースディレクトリをクリーンアップしました");
             AddTranslation("Log.VrHandTrackingSyncRemoved", "已移除 {0} 个 VRHandTrackingSync 组件", "Removed {0} VRHandTrackingSync component(s)", "{0}個のVRHandTrackingSyncコンポーネントを削除しました");
+            AddTranslation("Log.ScriptWrappedWithConditional", "已为脚本添加条件编译指令: {0}", "Added conditional compilation directives to script: {0}", "スクリプトに条件コンパイルディレクティブを追加しました: {0}");
+            AddTranslation("Log.XrDependentScriptsProcessed", "已处理 {0} 个依赖 XR 的脚本文件", "Processed {0} XR-dependent script file(s)", "{0}個のXR依存スクリプトファイルを処理しました");
+            AddTranslation("Log.XrDependentScriptsAlreadyWrapped", "已跳过 {0} 个已包含条件编译指令的脚本", "Skipped {0} script(s) that already have conditional compilation directives", "条件コンパイルディレクティブが既に含まれている{0}個のスクリプトをスキップしました");
             
             // 项目类型
             AddTranslation("ProjectType.VR", "当前项目类型：VR 项目", "Current Project Type: VR Project", "現在のプロジェクトタイプ：VRプロジェクト");

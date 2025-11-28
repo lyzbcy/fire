@@ -3678,6 +3678,10 @@ namespace OneClick.VRConverter.Editor
                     }
                 }
 
+                // 处理依赖 XR 的脚本文件，添加条件编译指令
+                progress.UpdateProgress(0.9f, "处理依赖 XR 的脚本文件...");
+                ProcessXrDependentScripts();
+
                 progress.UpdateProgress(0.9f, "保存场景...");
                 EditorSceneManager.MarkSceneDirty(scene);
                 EditorSceneManager.SaveScene(scene);
@@ -3716,6 +3720,184 @@ namespace OneClick.VRConverter.Editor
                 var errorMsg = ErrorHandler.HandleException(ex, "清理生成的 VR 资源", showDialog: false);
                 Log($"清理生成的 VR 资源时出错: {errorMsg}");
             }
+        }
+
+        /// <summary>
+        /// 处理依赖 XR 的脚本文件，添加条件编译指令使其在无 XR 包时不编译
+        /// </summary>
+        private void ProcessXrDependentScripts()
+        {
+            try
+            {
+                // 查找所有可能依赖 XR 的脚本文件
+                var scriptGuids = AssetDatabase.FindAssets("t:Script");
+                var processedCount = 0;
+                var skippedCount = 0;
+
+                foreach (var guid in scriptGuids)
+                {
+                    var scriptPath = AssetDatabase.GUIDToAssetPath(guid);
+                    
+                    // 跳过工具自己的脚本和生成的脚本
+                    if (scriptPath.Contains("VRConverter") || 
+                        scriptPath.Contains("VRConverterGenerated") ||
+                        scriptPath.Contains("Editor"))
+                    {
+                        continue;
+                    }
+
+                    if (!File.Exists(scriptPath))
+                    {
+                        continue;
+                    }
+
+                    var scriptContent = File.ReadAllText(scriptPath);
+                    
+                    // 检测是否依赖 XR 相关命名空间
+                    bool dependsOnXr = false;
+                    var xrNamespaces = new[]
+                    {
+                        "UnityEngine.XR.Interaction.Toolkit",
+                        "UnityEngine.XR.Management",
+                        "Unity.XR.CoreUtils",
+                        "UnityEngine.XR.OpenXR"
+                    };
+
+                    foreach (var ns in xrNamespaces)
+                    {
+                        if (scriptContent.Contains($"using {ns}") || 
+                            scriptContent.Contains($"using {ns};"))
+                        {
+                            dependsOnXr = true;
+                            break;
+                        }
+                    }
+
+                    // 检测是否使用了 XR 相关类型（即使没有 using 语句）
+                    if (!dependsOnXr)
+                    {
+                        var xrTypes = new[]
+                        {
+                            "XRRayInteractor",
+                            "XROrigin",
+                            "XRInteractionManager",
+                            "XRGeneralSettings",
+                            "XRManagerSettings",
+                            "OpenXRLoader"
+                        };
+
+                        foreach (var type in xrTypes)
+                        {
+                            if (scriptContent.Contains(type))
+                            {
+                                dependsOnXr = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (dependsOnXr)
+                    {
+                        // 检查是否已经有条件编译指令
+                        if (scriptContent.Contains("#if UNITY_XR") || 
+                            scriptContent.Contains("#ifdef UNITY_XR"))
+                        {
+                            skippedCount++;
+                            continue;
+                        }
+
+                        // 添加条件编译指令
+                        var wrappedContent = WrapScriptWithConditionalCompilation(scriptContent);
+                        if (wrappedContent != scriptContent)
+                        {
+                            // 创建备份
+                            var backupPath = scriptPath + ".vrbackup";
+                            if (!File.Exists(backupPath))
+                            {
+                                File.Copy(scriptPath, backupPath);
+                            }
+
+                            File.WriteAllText(scriptPath, wrappedContent);
+                            AssetDatabase.ImportAsset(scriptPath);
+                            processedCount++;
+                            Log(Localization.Get("Log.ScriptWrappedWithConditional", Path.GetFileName(scriptPath)));
+                        }
+                    }
+                }
+
+                if (processedCount > 0)
+                {
+                    Log(Localization.Get("Log.XrDependentScriptsProcessed", processedCount));
+                }
+                else if (skippedCount > 0)
+                {
+                    Log(Localization.Get("Log.XrDependentScriptsAlreadyWrapped", skippedCount));
+                }
+            }
+            catch (Exception ex)
+            {
+                var errorMsg = ErrorHandler.HandleException(ex, "处理依赖 XR 的脚本", showDialog: false);
+                Log($"处理依赖 XR 的脚本时出错: {errorMsg}");
+            }
+        }
+
+        /// <summary>
+        /// 为脚本添加条件编译指令包装
+        /// </summary>
+        private string WrapScriptWithConditionalCompilation(string scriptContent)
+        {
+            // 如果已经有条件编译指令，直接返回
+            if (scriptContent.Contains("#if UNITY_XR") || scriptContent.Contains("#ifdef UNITY_XR"))
+            {
+                return scriptContent;
+            }
+
+            var lines = scriptContent.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList();
+            var newLines = new List<string>();
+
+            // 查找第一个非空、非注释行（通常是 using 或 namespace）
+            int firstCodeLine = -1;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var trimmed = lines[i].Trim();
+                if (!string.IsNullOrEmpty(trimmed) && 
+                    !trimmed.StartsWith("//") && 
+                    !trimmed.StartsWith("/*") &&
+                    !trimmed.StartsWith("*"))
+                {
+                    firstCodeLine = i;
+                    break;
+                }
+            }
+
+            if (firstCodeLine < 0)
+            {
+                // 如果找不到代码行，直接返回原内容
+                return scriptContent;
+            }
+
+            // 添加文件头（注释等）
+            for (int i = 0; i < firstCodeLine; i++)
+            {
+                newLines.Add(lines[i]);
+            }
+
+            // 添加条件编译开始
+            newLines.Add("");
+            newLines.Add("#if UNITY_XR_INTERACTION_TOOLKIT || UNITY_XR_MANAGEMENT");
+            newLines.Add("");
+
+            // 添加从第一个代码行开始的所有内容
+            for (int i = firstCodeLine; i < lines.Count; i++)
+            {
+                newLines.Add(lines[i]);
+            }
+
+            // 添加条件编译结束
+            newLines.Add("");
+            newLines.Add("#endif // UNITY_XR_INTERACTION_TOOLKIT || UNITY_XR_MANAGEMENT");
+
+            return string.Join("\n", newLines);
         }
 
         #endregion
