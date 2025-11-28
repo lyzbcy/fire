@@ -212,10 +212,10 @@ namespace PoseDrive.Editor
                         nnModelType,
                         false) as UnityEngine.Object;
                     
-                    if (_detector != null && GUILayout.Button(PoseDriveLocalization.Tr("wizard.model.pullDetector")))
+            if (_detector != null && GUILayout.Button(PoseDriveLocalization.Tr("wizard.model.pullDetector")))
                     {
                         try
-                        {
+            {
                             // 检查编译时宏定义
 #if UNITY_BARRACUDA
                             PoseDriveLogger.LogDebug("编译时已定义 UNITY_BARRACUDA 宏");
@@ -224,7 +224,7 @@ namespace PoseDrive.Editor
 #endif
                             
                             // 先尝试使用 SerializedProperty
-                            SerializedObject so = new SerializedObject(_detector);
+                SerializedObject so = new SerializedObject(_detector);
                             var prop = so.FindProperty("_compiledModel");
                             
                             PoseDriveLogger.LogDebug($"SerializedProperty 查找结果: prop={(prop != null ? "找到" : "未找到")}, value={(prop != null && prop.objectReferenceValue != null ? "有值" : "无值")}");
@@ -295,11 +295,11 @@ namespace PoseDrive.Editor
                             PoseDriveLogger.LogException(ex, "从 PoseDetector 拉取模型时出错");
                             EditorUtility.DisplayDialog("错误", $"拉取模型时出错：{ex.Message}\n\n详细信息请查看日志文件。", "确定");
                         }
-                    }
-                    if (_classifier != null && GUILayout.Button(PoseDriveLocalization.Tr("wizard.model.pullClassifier")))
+            }
+            if (_classifier != null && GUILayout.Button(PoseDriveLocalization.Tr("wizard.model.pullClassifier")))
                     {
                         try
-                        {
+            {
                             // 检查编译时宏定义
 #if UNITY_BARRACUDA
                             PoseDriveLogger.LogDebug("编译时已定义 UNITY_BARRACUDA 宏");
@@ -308,7 +308,7 @@ namespace PoseDrive.Editor
 #endif
                             
                             // 先尝试使用 SerializedProperty
-                            SerializedObject so = new SerializedObject(_classifier);
+                SerializedObject so = new SerializedObject(_classifier);
                             var prop = so.FindProperty("_compiledModel");
                             
                             PoseDriveLogger.LogDebug($"SerializedProperty 查找结果: prop={(prop != null ? "找到" : "未找到")}, value={(prop != null && prop.objectReferenceValue != null ? "有值" : "无值")}");
@@ -379,9 +379,9 @@ namespace PoseDrive.Editor
                             PoseDriveLogger.LogException(ex, "从 ActionClassifier 拉取模型时出错");
                             EditorUtility.DisplayDialog("错误", $"拉取模型时出错：{ex.Message}\n\n详细信息请查看日志文件。", "确定");
                         }
+            }
                     }
                 }
-            }
             else
             {
                 if (!hasCompileTimeMacro)
@@ -390,10 +390,10 @@ namespace PoseDrive.Editor
                         "UNITY_BARRACUDA 宏未定义，无法访问模型字段。\n" +
                         "请先添加 UNITY_BARRACUDA 宏定义。",
                         MessageType.Warning);
-                }
-                else
-                {
-                    EditorGUILayout.HelpBox(PoseDriveLocalization.Tr("wizard.model.noBarracuda"), MessageType.Warning);
+            }
+            else
+            {
+            EditorGUILayout.HelpBox(PoseDriveLocalization.Tr("wizard.model.noBarracuda"), MessageType.Warning);
                 }
                 PoseDriveLogger.LogWarning("步骤2 - Barracuda 未安装或宏未定义，无法选择模型");
             }
