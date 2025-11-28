@@ -3491,8 +3491,8 @@ namespace OneClick.VRConverter.Editor
                     progress.UpdateProgress(0.85f, "清理 asmdef 文件...");
                     CleanupAsmdefReferences();
                     
-                    // 清理 PackageCache 中的 XR 包
-                    progress.UpdateProgress(0.88f, "清理 PackageCache 中的 XR 包...");
+                    // 检查 PackageCache 中的 XR 包（不删除，只提示）
+                    progress.UpdateProgress(0.88f, "检查 PackageCache...");
                     CleanupPackageCache();
                     
                     // 强制 Unity 重新解析包
@@ -3521,11 +3521,13 @@ namespace OneClick.VRConverter.Editor
                     
                     // 显示重要提示
                     var message = "XR 包移除完成！\n\n" +
-                        "如果仍有编译错误，请：\n" +
-                        "1. 关闭 Unity 编辑器\n" +
+                        "重要提示：\n" +
+                        "如果仍有编译错误，请按以下步骤操作：\n\n" +
+                        "1. 关闭 Unity 编辑器（完全退出）\n" +
                         "2. 手动删除 Library/PackageCache 中以 'com.unity.xr.' 开头的所有目录\n" +
                         "3. 重新打开 Unity 编辑器\n\n" +
-                        "这样可以确保 Unity 完全清理 XR 包的缓存。";
+                        "这样可以确保 Unity 完全清理 XR 包的缓存，避免编译错误。\n\n" +
+                        "注意：不要删除 Packages 目录中的内容，只删除 Library/PackageCache 中的 XR 包目录。";
                     
                     Log(message);
                     
@@ -3608,9 +3610,18 @@ namespace OneClick.VRConverter.Editor
                     var asmdefPath = AssetDatabase.GUIDToAssetPath(guid);
                     
                     // 跳过工具自己的 asmdef 和生成的资源
+                    // 重要：明确排除 PackageCache 和 Packages 目录中的文件（Unity 官方包）
                     if (asmdefPath.Contains("VRConverter") || 
                         asmdefPath.Contains("VRConverterGenerated") ||
-                        (asmdefPath.Contains("Editor") && asmdefPath.Contains("FocusOptimizer")))
+                        (asmdefPath.Contains("Editor") && asmdefPath.Contains("FocusOptimizer")) ||
+                        asmdefPath.Contains("PackageCache") ||
+                        asmdefPath.StartsWith("Packages/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    
+                    // 只处理 Assets 目录下的 asmdef 文件
+                    if (!asmdefPath.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }
@@ -4069,10 +4080,19 @@ namespace OneClick.VRConverter.Editor
                 {
                     var scriptPath = AssetDatabase.GUIDToAssetPath(guid);
                     
-                    // 跳过工具自己的脚本和生成的脚本
+                    // 跳过工具自己的脚本、生成的脚本、Editor 脚本
+                    // 重要：明确排除 PackageCache 和 Packages 目录中的文件（Unity 官方包）
                     if (scriptPath.Contains("VRConverter") || 
                         scriptPath.Contains("VRConverterGenerated") ||
-                        scriptPath.Contains("Editor"))
+                        scriptPath.Contains("Editor") ||
+                        scriptPath.Contains("PackageCache") ||
+                        scriptPath.StartsWith("Packages/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    
+                    // 只处理 Assets 目录下的脚本
+                    if (!scriptPath.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }
@@ -4233,6 +4253,7 @@ namespace OneClick.VRConverter.Editor
 
         /// <summary>
         /// 清理 PackageCache 中的 XR 包目录
+        /// 注意：不直接删除 PackageCache，而是提示用户手动清理，避免破坏 Unity 官方包
         /// </summary>
         private void CleanupPackageCache()
         {
@@ -4243,11 +4264,11 @@ namespace OneClick.VRConverter.Editor
                 
                 if (!Directory.Exists(packageCachePath))
                 {
-                    Log("PackageCache 目录不存在，跳过清理");
+                    Log("PackageCache 目录不存在，跳过检查");
                     return;
                 }
 
-                var removedCount = 0;
+                var xrPackagesFound = new List<string>();
                 var directories = Directory.GetDirectories(packageCachePath);
                 
                 foreach (var dir in directories)
@@ -4274,44 +4295,30 @@ namespace OneClick.VRConverter.Editor
 
                     if (isXrPackage)
                     {
-                        try
-                        {
-                            // 尝试删除目录
-                            Directory.Delete(dir, true);
-                            
-                            // 也删除对应的 .meta 文件（如果有）
-                            var metaFile = dir + ".meta";
-                            if (File.Exists(metaFile))
-                            {
-                                File.Delete(metaFile);
-                            }
-                            
-                            removedCount++;
-                            Log(Localization.Get("Log.PackageCacheRemoved", dirName));
-                        }
-                        catch (Exception ex)
-                        {
-                            // 如果删除失败（可能被 Unity 锁定），记录警告
-                            Logger.LogWarning($"无法删除 PackageCache 中的 {dirName}: {ex.Message}");
-                            Log($"警告：无法删除 PackageCache 中的 {dirName}，可能需要重启 Unity 后手动删除");
-                        }
+                        xrPackagesFound.Add(dirName);
                     }
                 }
 
-                if (removedCount > 0)
+                if (xrPackagesFound.Count > 0)
                 {
-                    Log(Localization.Get("Log.PackageCacheCleaned", removedCount));
+                    Log($"检测到 PackageCache 中有 {xrPackagesFound.Count} 个 XR 相关包目录");
+                    Log("这些是 Unity 官方包，不应在运行时删除");
+                    Log("转换完成后，请关闭 Unity 编辑器，然后手动删除以下目录：");
+                    foreach (var pkg in xrPackagesFound)
+                    {
+                        Log($"  - Library/PackageCache/{pkg}");
+                    }
+                    Log("删除后重新打开 Unity，Unity 会自动清理不再需要的包缓存");
                 }
                 else
                 {
-                    Log("PackageCache 中未找到 XR 相关包，或已被 Unity 锁定");
+                    Log("PackageCache 中未找到 XR 相关包");
                 }
             }
             catch (Exception ex)
             {
-                var errorMsg = ErrorHandler.HandleException(ex, "清理 PackageCache", showDialog: false);
-                Log($"清理 PackageCache 时出错: {errorMsg}");
-                Log("如果仍有编译错误，请手动关闭 Unity，然后删除 Library/PackageCache 中以 'com.unity.xr.' 开头的目录");
+                var errorMsg = ErrorHandler.HandleException(ex, "检查 PackageCache", showDialog: false);
+                Log($"检查 PackageCache 时出错: {errorMsg}");
             }
         }
 
