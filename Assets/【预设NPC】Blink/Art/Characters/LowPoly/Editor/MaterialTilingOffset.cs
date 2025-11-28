@@ -46,14 +46,26 @@ namespace BLINK.Tools
 
         private void DrawMainWindow()
         {
-            var serialProp = serialObj.FindProperty("gameObjectList");
-            EditorGUILayout.PropertyField(serialProp, true);
+            // 确保 serialObj 已初始化
+            if (serialObj == null)
+            {
+                OnEnable();
+            }
+            
+            var serialProp = serialObj?.FindProperty("gameObjectList");
+            if (serialProp != null)
+            {
+                EditorGUILayout.PropertyField(serialProp, true);
+            }
             GUILayout.Space(10);
+            
+            GUI.enabled = gameObjectList != null && gameObjectList.Length > 0;
             if (GUILayout.Button("INITIALIZE", GUILayout.MinWidth(150), GUILayout.MinHeight(30),
                 GUILayout.ExpandWidth(true)))
             {
                 Init();
             }
+            GUI.enabled = true;
             GUILayout.Space(10);
             
             EditorGUI.BeginChangeCheck();
@@ -77,11 +89,13 @@ namespace BLINK.Tools
             GUILayout.EndHorizontal();
             
             GUILayout.Space(10);
+            GUI.enabled = newMaterial != null;
             if (GUILayout.Button("CREATE MATERIAL", GUILayout.MinWidth(150), GUILayout.MinHeight(30),
                 GUILayout.ExpandWidth(true)))
             {
                 CreateMaterial();
             }
+            GUI.enabled = true;
             GUILayout.Space(10);
             if (GUILayout.Button("SAVE SELECTION", GUILayout.MinWidth(150), GUILayout.MinHeight(30),
                 GUILayout.ExpandWidth(true)))
@@ -89,11 +103,26 @@ namespace BLINK.Tools
                 SaveSelection();
             }
             
-            serialObj.ApplyModifiedProperties();
+            if (serialObj != null)
+            {
+                serialObj.ApplyModifiedProperties();
+            }
         }
 
         private void Init()
         {
+            if (gameObjectList == null || gameObjectList.Length == 0)
+            {
+                Debug.LogWarning("MaterialTilingOffset: gameObjectList 为空或没有元素，请先添加 GameObject。");
+                return;
+            }
+            
+            if (gameObjectList[0] == null)
+            {
+                Debug.LogWarning("MaterialTilingOffset: gameObjectList 的第一个元素为空。");
+                return;
+            }
+            
             Renderer renderer = gameObjectList[0].GetComponent<Renderer>();
             if (renderer != null)
             {
@@ -124,7 +153,7 @@ namespace BLINK.Tools
 
         private void UpdateMaterial()
         {
-            if (gameObjectList.Length == 0) return;
+            if (gameObjectList == null || gameObjectList.Length == 0) return;
             if (newMaterial == null) return;
 
             int offsetValue = sliderValue;
