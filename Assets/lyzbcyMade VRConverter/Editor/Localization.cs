@@ -255,6 +255,7 @@ namespace OneClick.VRConverter.Editor
             AddTranslation("Log.VrRigRemoved", "已移除 VRRig", "VRRig removed", "VRRigを削除しました");
             AddTranslation("Log.InteractionManagerRemoved", "已移除 XR Interaction Manager", "XR Interaction Manager removed", "XR Interaction Managerを削除しました");
             AddTranslation("Log.InputActionManagerRemoved", "已移除 XR Input Action Manager", "XR Input Action Manager removed", "XR Input Action Managerを削除しました");
+            AddTranslation("Log.GeneratedVrAssetsCleaned", "已清理生成的 VR 资源目录", "Cleaned up generated VR assets directory", "生成されたVRリソースディレクトリをクリーンアップしました");
             
             // 项目类型
             AddTranslation("ProjectType.VR", "当前项目类型：VR 项目", "Current Project Type: VR Project", "現在のプロジェクトタイプ：VRプロジェクト");

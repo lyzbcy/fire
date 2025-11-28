@@ -1194,6 +1194,9 @@ namespace OneClick.VRConverter.Editor
                     return;
                 }
 
+                // 清理 VRConverterGenerated 目录（包含 DeviceSimulator、StarterAssets 等）
+                CleanupGeneratedVrAssets();
+
                 if (plan.ConfigureProjectSettings)
                 {
                     Restore3DProjectSettings(plan.TargetGroups);
@@ -3661,6 +3664,38 @@ namespace OneClick.VRConverter.Editor
                 EditorSceneManager.SaveScene(scene);
                 Log(Localization.Get("Log.SceneConvertedTo3D"));
                 return true;
+            }
+        }
+
+        /// <summary>
+        /// 清理 VRConverterGenerated 目录，移除所有生成的 VR 相关资源
+        /// </summary>
+        private void CleanupGeneratedVrAssets()
+        {
+            try
+            {
+                if (Directory.Exists(GeneratedRootFolder))
+                {
+                    Log($"正在清理生成的 VR 资源目录: {GeneratedRootFolder}");
+                    
+                    // 删除整个 VRConverterGenerated 目录
+                    FileUtil.DeleteFileOrDirectory(GeneratedRootFolder);
+                    
+                    // 删除对应的 .meta 文件
+                    var metaPath = GeneratedRootFolder + ".meta";
+                    if (File.Exists(metaPath))
+                    {
+                        FileUtil.DeleteFileOrDirectory(metaPath);
+                    }
+                    
+                    AssetDatabase.Refresh();
+                    Log(Localization.Get("Log.GeneratedVrAssetsCleaned"));
+                }
+            }
+            catch (Exception ex)
+            {
+                var errorMsg = ErrorHandler.HandleException(ex, "清理生成的 VR 资源", showDialog: false);
+                Log($"清理生成的 VR 资源时出错: {errorMsg}");
             }
         }
 
