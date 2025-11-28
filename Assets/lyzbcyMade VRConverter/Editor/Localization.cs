@@ -158,10 +158,13 @@ namespace OneClick.VRConverter.Editor
             AddTranslation("Log.Export", "导出日志", "Export Log");
 
             // 错误消息
-            AddTranslation("Error.OperationFailed", "操作失败", "Operation Failed");
-            AddTranslation("Error.BackupFailed", "备份失败", "Backup Failed");
-            AddTranslation("Error.LogExportFailed", "导出日志失败", "Log Export Failed");
-            AddTranslation("Error.LogFileNotFound", "日志文件不存在或尚未创建。", "Log file does not exist or has not been created yet.");
+            AddTranslation("Error.OperationFailed", "操作失败", "Operation Failed", "操作失敗");
+            AddTranslation("Error.BackupFailed", "备份失败", "Backup Failed", "バックアップ失敗");
+            AddTranslation("Error.LogExportFailed", "导出日志失败", "Log Export Failed", "ログエクスポート失敗");
+            AddTranslation("Error.LogFileNotFound", "日志文件不存在或尚未创建。", "Log file does not exist or has not been created yet.", "ログファイルが存在しないか、まだ作成されていません。");
+            AddTranslation("Error.GitAssistantNotDetected", "未检测到版本控制助手。", "Version Control Assistant not detected.", "バージョン管理アシスタントが検出されませんでした。");
+            AddTranslation("Error.GitAssistantNotInstalled", "未安装版本控制助手。", "Version Control Assistant not installed.", "バージョン管理アシスタントがインストールされていません。");
+            AddTranslation("Log.XRManagementNotDetected", "未检测到 XR Management，可能已移除，跳过项目设置恢复", "XR Management not detected, may have been removed, skipping project settings restoration", "XR Managementが検出されませんでした。削除された可能性があります。プロジェクト設定の復元をスキップします");
 
             // 成功消息
             AddTranslation("Success.LogExported", "日志已导出到:\n{0}", "Log exported to:\n{0}");
@@ -223,7 +226,7 @@ namespace OneClick.VRConverter.Editor
             AddTranslation("QuickStart.Hint", "如果你不熟悉 XR 配置，推荐优先使用上面的\"一键执行\"按钮。", 
                 "If you are not familiar with XR configuration, it is recommended to use the \"Run All\" button above first.",
                 "XR設定に慣れていない場合は、上記の「すべて実行」ボタンを優先的に使用することをお勧めします。");
-            
+
             // 反向转换相关
             AddTranslation("Reverse.Title", "转换为 3D 项目", "Convert to 3D Project", "3Dプロジェクトに変換");
             AddTranslation("Reverse.Description", 
@@ -362,22 +365,255 @@ namespace OneClick.VRConverter.Editor
                 "バージョン管理アシスタントをインストールすると、このウィンドウで自動バックアップとロールバックボタンを取得できます。");
 
             // 兼容性检查
-            AddTranslation("Compatibility.RenderPipeline.BuiltIn", "内置渲染管线", "Built-in Render Pipeline");
+            AddTranslation("Compatibility.RenderPipeline", "渲染管线", "Render Pipeline", "レンダーパイプライン");
+            AddTranslation("Compatibility.RenderPipeline.BuiltIn", "内置渲染管线", "Built-in Render Pipeline", "ビルトインレンダーパイプライン");
             AddTranslation("Compatibility.RenderPipeline.BuiltInHint", "使用 Built-in Render Pipeline，可直接使用模板配置。", 
-                "Using Built-in Render Pipeline, can directly use template configuration.");
+                "Using Built-in Render Pipeline, can directly use template configuration.",
+                "Built-in Render Pipelineを使用しており、テンプレート構成を直接使用できます。");
             AddTranslation("Compatibility.RenderPipeline.Detected", "检测到 {0}，如使用 URP/HDRP，请确认对应 XR Renderer 已启用。", 
-                "Detected {0}, if using URP/HDRP, please confirm the corresponding XR Renderer is enabled.");
+                "Detected {0}, if using URP/HDRP, please confirm the corresponding XR Renderer is enabled.",
+                "{0}が検出されました。URP/HDRPを使用する場合は、対応するXR Rendererが有効になっていることを確認してください。");
+            
+            // 项目体检详细文本
+            AddTranslation("Compatibility.Detected", "已检测到", "Detected", "検出されました");
+            AddTranslation("Compatibility.NotInstalled", "尚未安装", "Not Installed", "インストールされていません");
+            AddTranslation("Compatibility.Ready", "已就绪", "Ready", "準備完了");
+            AddTranslation("Compatibility.NotDetected", "未检测到", "Not Detected", "検出されませんでした");
+            AddTranslation("Compatibility.Imported", "已导入", "Imported", "インポート済み");
+            AddTranslation("Compatibility.NotImported", "未导入", "Not Imported", "インポートされていません");
+            AddTranslation("Compatibility.Configured", "已配置", "Configured", "構成済み");
+            AddTranslation("Compatibility.NotConfigured", "未配置", "Not Configured", "構成されていません");
+            AddTranslation("Compatibility.Installed", "已安装", "Installed", "インストール済み");
+            AddTranslation("Compatibility.Status.Unknown", "未知", "Unknown", "不明");
+            
+            // XR Management
+            AddTranslation("Compatibility.XRManagement", "XR Management", "XR Management", "XR Management");
+            AddTranslation("Compatibility.XRManagement.Hint.Installed", "可直接配置 XRGeneralSettings。", 
+                "Can directly configure XRGeneralSettings.",
+                "XRGeneralSettingsを直接構成できます。");
+            AddTranslation("Compatibility.XRManagement.Hint.NotInstalled", "建议先通过第 1 步或 Package Manager 导入 XR Management。", 
+                "It is recommended to import XR Management first through Step 1 or Package Manager.",
+                "まずステップ1またはPackage ManagerからXR Managementをインポートすることをお勧めします。");
+            
+            // OpenXR
+            AddTranslation("Compatibility.OpenXR", "OpenXR Loader", "OpenXR Loader", "OpenXR Loader");
+            AddTranslation("Compatibility.OpenXR.Hint.Installed", "可直接为 Standalone / Android 启用。", 
+                "Can directly enable for Standalone / Android.",
+                "Standalone / Android用に直接有効化できます。");
+            AddTranslation("Compatibility.OpenXR.Hint.NotInstalled", "请确认 com.unity.xr.openxr 已导入。", 
+                "Please confirm com.unity.xr.openxr is imported.",
+                "com.unity.xr.openxrがインポートされていることを確認してください。");
+            
+            // XR Interaction Toolkit
+            AddTranslation("Compatibility.XRInteractionToolkit", "XR Interaction Toolkit", "XR Interaction Toolkit", "XR Interaction Toolkit");
+            AddTranslation("Compatibility.XRInteractionToolkit.Hint.Installed", "将优先创建 XR Origin（Action Based）。", 
+                "Will prioritize creating XR Origin (Action Based).",
+                "XR Origin（Action Based）の作成を優先します。");
+            AddTranslation("Compatibility.XRInteractionToolkit.Hint.NotInstalled", "缺少时将退回基础 VRRig。", 
+                "Will fallback to basic VRRig when missing.",
+                "不足している場合は基本VRRigにフォールバックします。");
+            
+            // 输入系统
+            AddTranslation("Compatibility.InputSystem", "输入系统", "Input System", "入力システム");
+            AddTranslation("Compatibility.InputSystem.Enabled", "新输入系统已启用", "New Input System Enabled", "新しい入力システムが有効");
+            AddTranslation("Compatibility.InputSystem.Recommended", "建议启用新输入系统", "New Input System Recommended", "新しい入力システムを有効にすることをお勧めします");
+            AddTranslation("Compatibility.InputSystem.Hint.Enabled", "可自动绑定 XRI Default Input Actions。", 
+                "Can automatically bind XRI Default Input Actions.",
+                "XRI Default Input Actionsを自動的にバインドできます。");
+            AddTranslation("Compatibility.InputSystem.Hint.NotEnabled", "未检测到 Unity Input System 类型，可能需要在 Player Settings 中切换或安装该包。", 
+                "Unity Input System type not detected, may need to switch in Player Settings or install the package.",
+                "Unity Input Systemタイプが検出されませんでした。Player Settingsで切り替えるか、パッケージをインストールする必要がある場合があります。");
+            
+            // VR 模拟设备
+            AddTranslation("Compatibility.VRSimulator", "VR 模拟设备", "VR Simulator", "VRシミュレーター");
+            AddTranslation("Compatibility.VRSimulator.Hint.Configured", "进入 Play 模式后自动实例化 XR Device Simulator。", 
+                "Will automatically instantiate XR Device Simulator when entering Play mode.",
+                "Playモードに入ると、XR Device Simulatorが自動的にインスタンス化されます。");
+            AddTranslation("Compatibility.VRSimulator.Hint.NotConfigured", "将在傻瓜式模式下一键配置，或在专业模式中勾选\"配置 VR 模拟设备\"。", 
+                "Will be configured in one click in guided mode, or check \"Configure VR Simulator\" in professional mode.",
+                "ガイドモードでワンクリックで構成されるか、プロフェッショナルモードで「VRシミュレーターを構成」をチェックします。");
+            
+            // 版本控制助手
+            AddTranslation("Compatibility.VersionControl", "版本控制助手", "Version Control Assistant", "バージョン管理アシスタント");
+            AddTranslation("Compatibility.VersionControl.Hint.Installed", "可直接使用快速备份 / 回滚。", 
+                "Can directly use quick backup / rollback.",
+                "クイックバックアップ/ロールバックを直接使用できます。");
+            AddTranslation("Compatibility.VersionControl.Hint.NotInstalled", "建议先导入 com.fire.gitassistant，以提升备份体验。", 
+                "It is recommended to import com.fire.gitassistant first to improve backup experience.",
+                "バックアップ体験を向上させるために、まずcom.fire.gitassistantをインポートすることをお勧めします。");
+            
+            // 菜单相关
+            AddTranslation("Menu.Tools", "工具", "Tools", "ツール");
+            AddTranslation("Menu.VRConverter", "VR转换助手", "VR Converter", "VR変換アシスタント");
+            AddTranslation("Menu.MainWindow", "主界面", "Main Window", "メインウィンドウ");
+            AddTranslation("Menu.ConvertToVR", "一键转换当前项目为VR...", "Convert Current Project to VR...", "現在のプロジェクトをVRに変換...");
+            
+            // 按钮和对话框
+            AddTranslation("Button.DiagnosticReport", "诊断报告", "Diagnostic Report", "診断レポート");
+            AddTranslation("Dialog.ExportDiagnosticReport", "导出诊断报告", "Export Diagnostic Report", "診断レポートをエクスポート");
+            AddTranslation("Dialog.DiagnosticReportExported", "诊断报告已导出到:\n{0}", "Diagnostic report exported to:\n{0}", "診断レポートをエクスポートしました:\n{0}");
+            AddTranslation("Dialog.Success", "成功", "Success", "成功");
+            
+            // 诊断报告文本
+            AddTranslation("Diagnostic.Report.Title", "=== VR Converter 诊断报告 ===", "=== VR Converter Diagnostic Report ===", "=== VR Converter 診断レポート ===");
+            AddTranslation("Diagnostic.Report.GeneratedTime", "生成时间: {0}", "Generated Time: {0}", "生成時間: {0}");
+            AddTranslation("Diagnostic.Report.UnityVersion", "## Unity 版本信息", "## Unity Version Information", "## Unity バージョン情報");
+            AddTranslation("Diagnostic.Report.CurrentVersion", "当前版本: {0}", "Current Version: {0}", "現在のバージョン: {0}");
+            AddTranslation("Diagnostic.Report.CompatibilityStatus", "兼容性状态: {0}", "Compatibility Status: {0}", "互換性ステータス: {0}");
+            AddTranslation("Diagnostic.Report.Description", "说明: {0}", "Description: {0}", "説明: {0}");
+            AddTranslation("Diagnostic.Report.XRPackageStatus", "## XR 包状态", "## XR Package Status", "## XR パッケージステータス");
+            AddTranslation("Diagnostic.Report.PackageStatus", "- {0}: {1}", "- {0}: {1}", "- {0}: {1}");
+            AddTranslation("Diagnostic.Report.Installed", "✓ 已安装", "✓ Installed", "✓ インストール済み");
+            AddTranslation("Diagnostic.Report.NotInstalled", "✗ 未安装", "✗ Not Installed", "✗ インストールされていません");
+            AddTranslation("Diagnostic.Report.ProjectSettings", "## 项目设置", "## Project Settings", "## プロジェクト設定");
+            AddTranslation("Diagnostic.Report.XRManagementEnabled", "XR 管理已启用: {0}", "XR Management Enabled: {0}", "XR管理が有効: {0}");
+            AddTranslation("Diagnostic.Report.OpenXREnabled", "OpenXR Loader 已启用: {0}", "OpenXR Loader Enabled: {0}", "OpenXR Loaderが有効: {0}");
+            AddTranslation("Diagnostic.Report.SceneInfo", "## 当前场景信息", "## Current Scene Information", "## 現在のシーン情報");
+            AddTranslation("Diagnostic.Report.SceneName", "场景名称: {0}", "Scene Name: {0}", "シーン名: {0}");
+            AddTranslation("Diagnostic.Report.ScenePath", "场景路径: {0}", "Scene Path: {0}", "シーンパス: {0}");
+            AddTranslation("Diagnostic.Report.HasXROrigin", "场景中是否有 XR Origin: {0}", "Has XR Origin in Scene: {0}", "シーンにXR Originがあるか: {0}");
+            AddTranslation("Diagnostic.Report.HasMainCamera", "场景中是否有 Main Camera: {0}", "Has Main Camera in Scene: {0}", "シーンにMain Cameraがあるか: {0}");
+            AddTranslation("Diagnostic.Report.NoSceneLoaded", "未加载场景", "No Scene Loaded", "シーンが読み込まれていません");
+            AddTranslation("Diagnostic.Report.SystemInfo", "## 系统信息", "## System Information", "## システム情報");
+            AddTranslation("Diagnostic.Report.OS", "操作系统: {0}", "Operating System: {0}", "オペレーティングシステム: {0}");
+            AddTranslation("Diagnostic.Report.Processor", "处理器: {0}", "Processor: {0}", "プロセッサ: {0}");
+            AddTranslation("Diagnostic.Report.Memory", "内存: {0} MB", "Memory: {0} MB", "メモリ: {0} MB");
+            AddTranslation("Diagnostic.Report.GraphicsDevice", "图形设备: {0}", "Graphics Device: {0}", "グラフィックスデバイス: {0}");
+            AddTranslation("Diagnostic.Report.GraphicsAPI", "图形 API: {0}", "Graphics API: {0}", "グラフィックスAPI: {0}");
+            AddTranslation("Diagnostic.Report.LogInfo", "## 日志信息", "## Log Information", "## ログ情報");
+            AddTranslation("Diagnostic.Report.LogFilePath", "日志文件路径: {0}", "Log File Path: {0}", "ログファイルパス: {0}");
+            AddTranslation("Diagnostic.Report.LogFileSize", "日志文件大小: {0} KB", "Log File Size: {0} KB", "ログファイルサイズ: {0} KB");
+            AddTranslation("Diagnostic.Report.LogLastModified", "最后修改时间: {0}", "Last Modified: {0}", "最終更新日時: {0}");
+            AddTranslation("Diagnostic.Report.LogFileNotExists", "日志文件不存在", "Log File Does Not Exist", "ログファイルが存在しません");
+            AddTranslation("Diagnostic.Report.BackupInfo", "## 备份信息", "## Backup Information", "## バックアップ情報");
+            AddTranslation("Diagnostic.Report.BackupCount", "备份数量: {0}", "Backup Count: {0}", "バックアップ数: {0}");
+            AddTranslation("Diagnostic.Report.RecentBackups", "最近的备份:", "Recent Backups:", "最近のバックアップ:");
+            AddTranslation("Diagnostic.Report.BackupItem", "  - {0} ({1})", "  - {0} ({1})", "  - {0} ({1})");
+            AddTranslation("Diagnostic.Report.Suggestions", "## 诊断建议", "## Diagnostic Suggestions", "## 診断提案");
+            AddTranslation("Diagnostic.Report.SuggestionItem", "- {0}", "- {0}", "- {0}");
+            AddTranslation("Diagnostic.Report.NoIssues", "未发现明显问题", "No Obvious Issues Found", "明らかな問題は見つかりませんでした");
+            
+            // 诊断建议
+            AddTranslation("Diagnostic.Suggestion.UnsupportedVersion", "Unity 版本不兼容，建议使用 Unity {0} - {1}", 
+                "Unity version is incompatible, recommended to use Unity {0} - {1}",
+                "Unityバージョンが互換性がありません。Unity {0} - {1}の使用を推奨します");
+            AddTranslation("Diagnostic.Suggestion.VersionWarning", "Unity 版本可能有兼容性问题，建议更新到最新版本", 
+                "Unity version may have compatibility issues, recommended to update to the latest version",
+                "Unityバージョンに互換性の問題がある可能性があります。最新バージョンへの更新を推奨します");
+            AddTranslation("Diagnostic.Suggestion.MissingPackage", "缺少必要的 XR 包: {0}，请执行第 1 步安装", 
+                "Missing required XR package: {0}, please execute Step 1 to install",
+                "必要なXRパッケージが不足しています: {0}、ステップ1を実行してインストールしてください");
+            AddTranslation("Diagnostic.Suggestion.XRManagementNotEnabled", "XR Management 未启用，请执行第 2 步配置项目设置", 
+                "XR Management is not enabled, please execute Step 2 to configure project settings",
+                "XR Managementが有効になっていません。ステップ2を実行してプロジェクト設定を構成してください");
+            AddTranslation("Diagnostic.Suggestion.OpenXRNotEnabled", "OpenXR Loader 未启用，请执行第 2 步配置项目设置", 
+                "OpenXR Loader is not enabled, please execute Step 2 to configure project settings",
+                "OpenXR Loaderが有効になっていません。ステップ2を実行してプロジェクト設定を構成してください");
+            AddTranslation("Diagnostic.Suggestion.NoXROrigin", "当前场景中没有 XR Origin，请执行第 3 步转换场景", 
+                "No XR Origin in current scene, please execute Step 3 to convert scene",
+                "現在のシーンにXR Originがありません。ステップ3を実行してシーンを変換してください");
+            
+            // 版本检查相关
+            AddTranslation("VersionCheck.Warning.Title", "版本兼容性警告", "Version Compatibility Warning", "バージョン互換性警告");
+            AddTranslation("VersionCheck.Warning.Message", "当前 Unity 版本 {0} 可能不完全兼容。\n\n推荐版本范围：{1} - {2}\n\n某些功能可能无法正常工作。是否继续？", 
+                "Current Unity version {0} may not be fully compatible.\n\nRecommended version range: {1} - {2}\n\nSome features may not work properly. Continue?",
+                "現在のUnityバージョン{0}は完全に互換性がない可能性があります。\n\n推奨バージョン範囲: {1} - {2}\n\n一部の機能が正常に動作しない可能性があります。続行しますか？");
+            AddTranslation("VersionCheck.Log", "Unity 版本检查: {0} (兼容性: {1})", 
+                "Unity version check: {0} (Compatibility: {1})",
+                "Unityバージョンチェック: {0} (互換性: {1})");
+            AddTranslation("VersionCheck.Compatible", "是", "Yes", "はい");
+            AddTranslation("VersionCheck.Warning", "警告", "Warning", "警告");
+            AddTranslation("VersionCheck.Failed.Title", "版本检查失败", "Version Check Failed", "バージョンチェック失敗");
+            AddTranslation("VersionCheck.Failed.Message", "无法检查 Unity 版本，但可以继续使用。如果遇到问题，请检查 Unity 版本。", 
+                "Unable to check Unity version, but you can continue. If you encounter problems, please check the Unity version.",
+                "Unityバージョンをチェックできませんが、続行できます。問題が発生した場合は、Unityバージョンを確認してください。");
+            AddTranslation("VersionCheck.Unknown", "无法确定版本兼容性，建议使用 Unity 2020.3 或更高版本", 
+                "Unable to determine version compatibility, recommended to use Unity 2020.3 or higher",
+                "バージョン互換性を確定できません。Unity 2020.3以降の使用を推奨します");
+            AddTranslation("VersionCheck.Recommendation.Supported", "当前版本完全支持所有功能", 
+                "Current version fully supports all features",
+                "現在のバージョンはすべての機能を完全にサポートしています");
+            AddTranslation("VersionCheck.Recommendation.Warning", "当前版本可能部分功能受限，建议升级到推荐版本", 
+                "Current version may have limited functionality, recommended to upgrade to recommended version",
+                "現在のバージョンは一部の機能が制限されている可能性があります。推奨バージョンへのアップグレードを推奨します");
+            AddTranslation("VersionCheck.Recommendation.Unsupported", "当前版本不受支持，强烈建议升级到 Unity 2020.3 或更高版本", 
+                "Current version is not supported, strongly recommended to upgrade to Unity 2020.3 or higher",
+                "現在のバージョンはサポートされていません。Unity 2020.3以降へのアップグレードを強く推奨します");
+            AddTranslation("VersionCheck.Recommendation.Unknown", "无法确定版本兼容性", 
+                "Unable to determine version compatibility",
+                "バージョン互換性を確定できません");
+            
+            // 按钮
+            AddTranslation("Button.Continue", "继续", "Continue", "続行");
+            AddTranslation("Button.Cancel", "取消", "Cancel", "キャンセル");
 
             // 日志消息
-            AddTranslation("Log.OpenTool", "打开一键 VR 转换工具。", "Opened One-Click VR Converter tool.");
-            AddTranslation("Log.NoStepsSelected", "未选择需要执行的步骤。", "No steps selected for execution.");
+            AddTranslation("Log.OpenTool", "打开一键 VR 转换工具。", "Opened One-Click VR Converter tool.", "ワンクリックVR変換ツールを開きました。");
+            AddTranslation("Log.NoStepsSelected", "未选择需要执行的步骤。", "No steps selected for execution.", "実行するステップが選択されていません。");
             AddTranslation("Log.UserCancelled", "用户取消执行 {0}，原因：尚未完成备份确认。", 
-                "User cancelled execution of {0}, reason: Backup confirmation not completed.");
-            AddTranslation("Log.BackupCreated", "已创建操作备份: {0}", "Operation backup created: {0}");
+                "User cancelled execution of {0}, reason: Backup confirmation not completed.",
+                "ユーザーが{0}の実行をキャンセルしました。理由：バックアップ確認が完了していません。");
+            AddTranslation("Log.BackupCreated", "已创建操作备份: {0}", "Operation backup created: {0}", "操作バックアップを作成しました: {0}");
             AddTranslation("Log.Compiling", "Unity 正在导入或编译脚本，请等待完成后再执行后续步骤。", 
-                "Unity is importing or compiling scripts, please wait for completion before executing subsequent steps.");
+                "Unity is importing or compiling scripts, please wait for completion before executing subsequent steps.",
+                "Unityがスクリプトをインポートまたはコンパイル中です。完了するまで待ってから後続のステップを実行してください。");
             AddTranslation("Log.ManifestNotFound", "未找到 Packages/manifest.json，无法自动添加 XR 依赖。", 
-                "Packages/manifest.json not found, cannot automatically add XR dependencies.");
+                "Packages/manifest.json not found, cannot automatically add XR dependencies.",
+                "Packages/manifest.jsonが見つかりません。XR依存関係を自動的に追加できません。");
+            AddTranslation("Log.XRPackagesToRemove", "检测到 {0} 个 XR 相关包需要移除", 
+                "Detected {0} XR-related packages to remove",
+                "{0}個のXR関連パッケージを削除する必要があります");
+            AddTranslation("Log.XRPackagesRemoved", "已移除 XR 包依赖，Unity 正在重新解析包...", 
+                "XR package dependencies removed, Unity is re-resolving packages...",
+                "XRパッケージ依存関係を削除しました。Unityがパッケージを再解決中...");
+            AddTranslation("Log.ScriptingDefineSymbolRemoved", "已从 {0} 的 Scripting Define Symbols 中移除: {1}", 
+                "Removed from {0} Scripting Define Symbols: {1}",
+                "{0}のScripting Define Symbolsから削除しました: {1}");
+            AddTranslation("Log.ErrorCleaningScriptingDefineSymbols", "清理 Scripting Define Symbols 时出错: {0}", 
+                "Error cleaning Scripting Define Symbols: {0}",
+                "Scripting Define Symbolsのクリーンアップ中にエラーが発生しました: {0}");
+            AddTranslation("Log.ErrorCleaningAsmdef", "清理 asmdef 文件时出错: {0}", 
+                "Error cleaning asmdef files: {0}",
+                "asmdefファイルのクリーンアップ中にエラーが発生しました: {0}");
+            AddTranslation("Log.XRGeneralSettingsNotFound", "未找到 XR General Settings 资产，跳过恢复", 
+                "XR General Settings asset not found, skipping restoration",
+                "XR General Settingsアセットが見つかりません。復元をスキップします");
+            AddTranslation("Log.CannotGetXRSettings", "无法获取 XR 设置，跳过恢复", 
+                "Cannot get XR settings, skipping restoration",
+                "XR設定を取得できません。復元をスキップします");
+            AddTranslation("Log.CleaningGeneratedVrAssets", "正在清理生成的 VR 资源目录: {0}", 
+                "Cleaning generated VR assets directory: {0}",
+                "生成されたVRアセットディレクトリをクリーンアップ中: {0}");
+            AddTranslation("Log.ErrorCleaningGeneratedVrAssets", "清理生成的 VR 资源时出错: {0}", 
+                "Error cleaning generated VR assets: {0}",
+                "生成されたVRアセットのクリーンアップ中にエラーが発生しました: {0}");
+            AddTranslation("Log.ErrorProcessingXrDependentScripts", "处理依赖 XR 的脚本时出错: {0}", 
+                "Error processing XR-dependent scripts: {0}",
+                "XR依存スクリプトの処理中にエラーが発生しました: {0}");
+            AddTranslation("Log.PackageCacheNotExists", "PackageCache 目录不存在，跳过检查", 
+                "PackageCache directory does not exist, skipping check",
+                "PackageCacheディレクトリが存在しません。チェックをスキップします");
+            AddTranslation("Log.PackageCacheXrPackagesFound", "检测到 PackageCache 中有 {0} 个 XR 相关包目录", 
+                "Detected {0} XR-related package directories in PackageCache",
+                "PackageCacheに{0}個のXR関連パッケージディレクトリが検出されました");
+            AddTranslation("Log.PackageCacheOfficialPackages", "这些是 Unity 官方包，不应在运行时删除", 
+                "These are Unity official packages and should not be deleted at runtime",
+                "これらはUnity公式パッケージであり、実行時に削除すべきではありません");
+            AddTranslation("Log.PackageCacheManualCleanupRequired", "转换完成后，请关闭 Unity 编辑器，然后手动删除以下目录：", 
+                "After conversion is complete, please close Unity Editor and manually delete the following directories:",
+                "変換が完了したら、Unityエディターを閉じて、以下のディレクトリを手動で削除してください：");
+            AddTranslation("Log.PackageCachePackagePath", "  - Library/PackageCache/{0}", 
+                "  - Library/PackageCache/{0}",
+                "  - Library/PackageCache/{0}");
+            AddTranslation("Log.PackageCacheAfterCleanup", "删除后重新打开 Unity，Unity 会自动清理不再需要的包缓存", 
+                "After deletion, reopen Unity and Unity will automatically clean up unnecessary package cache",
+                "削除後、Unityを再度開くと、Unityが不要なパッケージキャッシュを自動的にクリーンアップします");
+            AddTranslation("Log.NoXrPackagesInCache", "PackageCache 中未找到 XR 相关包", 
+                "No XR-related packages found in PackageCache",
+                "PackageCacheにXR関連パッケージが見つかりませんでした");
+            AddTranslation("Log.ErrorCheckingPackageCache", "检查 PackageCache 时出错: {0}", 
+                "Error checking PackageCache: {0}",
+                "PackageCacheのチェック中にエラーが発生しました: {0}");
             AddTranslation("Log.ManifestBackupCreated", "已创建 manifest.json 备份", "manifest.json backup created");
             AddTranslation("Log.LatestRemoved", "已移除 manifest.json 中的 \"latest\" 占位符，请等待 Unity 刷新。", 
                 "Removed \"latest\" placeholder from manifest.json, please wait for Unity to refresh.");

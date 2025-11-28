@@ -84,17 +84,24 @@ namespace OneClick.VRConverter.Editor
 
                 if (!isCompatible && showWarning)
                 {
-                    var message = $"当前 Unity 版本 {Application.unityVersion} 可能不完全兼容。\n\n" +
-                                  $"推荐版本范围：{MinSupportedVersion} - {MaxSupportedVersion}\n\n" +
-                                  "某些功能可能无法正常工作。是否继续？";
+                    var message = Localization.Get("VersionCheck.Warning.Message", 
+                        Application.unityVersion, 
+                        MinSupportedVersion, 
+                        MaxSupportedVersion);
                     
-                    if (!EditorUtility.DisplayDialog("版本兼容性警告", message, "继续", "取消"))
+                    if (!EditorUtility.DisplayDialog(
+                        Localization.Get("VersionCheck.Warning.Title"),
+                        message, 
+                        Localization.Get("Button.Continue"),
+                        Localization.Get("Button.Cancel")))
                     {
                         return false;
                     }
                 }
 
-                Logger.LogInfo($"Unity 版本检查: {Application.unityVersion} (兼容性: {(isCompatible ? "是" : "警告")})");
+                Logger.LogInfo(Localization.Get("VersionCheck.Log", 
+                    Application.unityVersion, 
+                    isCompatible ? Localization.Get("VersionCheck.Compatible") : Localization.Get("VersionCheck.Warning")));
                 return true;
             }
             catch (Exception ex)
@@ -102,8 +109,10 @@ namespace OneClick.VRConverter.Editor
                 Logger.LogException(ex, "Unity 版本检查失败");
                 if (showWarning)
                 {
-                    EditorUtility.DisplayDialog("版本检查失败", 
-                        "无法检查 Unity 版本，但可以继续使用。如果遇到问题，请检查 Unity 版本。", "确定");
+                    EditorUtility.DisplayDialog(
+                        Localization.Get("VersionCheck.Failed.Title"),
+                        Localization.Get("VersionCheck.Failed.Message"),
+                        Localization.Get("Button.OK"));
                 }
                 return true; // 检查失败时允许继续，避免阻塞用户
             }
@@ -143,7 +152,7 @@ namespace OneClick.VRConverter.Editor
                     CurrentVersion = Application.unityVersion,
                     IsCompatible = true, // 默认允许继续
                     Status = CompatibilityStatus.Unknown,
-                    Recommendation = "无法确定版本兼容性，建议使用 Unity 2020.3 或更高版本"
+                    Recommendation = Localization.Get("VersionCheck.Unknown", "无法确定版本兼容性，建议使用 Unity 2020.3 或更高版本")
                 };
             }
         }
@@ -152,10 +161,10 @@ namespace OneClick.VRConverter.Editor
         {
             return status switch
             {
-                CompatibilityStatus.Supported => "当前版本完全支持所有功能",
-                CompatibilityStatus.Warning => "当前版本可能部分功能受限，建议升级到推荐版本",
-                CompatibilityStatus.Unsupported => "当前版本不受支持，强烈建议升级到 Unity 2020.3 或更高版本",
-                _ => "无法确定版本兼容性"
+                CompatibilityStatus.Supported => Localization.Get("VersionCheck.Recommendation.Supported"),
+                CompatibilityStatus.Warning => Localization.Get("VersionCheck.Recommendation.Warning"),
+                CompatibilityStatus.Unsupported => Localization.Get("VersionCheck.Recommendation.Unsupported"),
+                _ => Localization.Get("VersionCheck.Recommendation.Unknown")
             };
         }
 

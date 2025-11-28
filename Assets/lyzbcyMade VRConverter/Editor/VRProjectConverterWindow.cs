@@ -21,6 +21,8 @@ namespace OneClick.VRConverter.Editor
     /// </summary>
     public class VRProjectConverterWindow : EditorWindow
     {
+        // Unity 的 MenuItem 属性不支持动态字符串（编译时限制）
+        // 菜单项文本无法在运行时根据语言动态变化，但窗口内的所有 UI 文本都会使用本地化
         private const string MenuPath = "Tools/VR Converter/一键转换当前项目为VR...";
 
         // 需要添加的 XR 相关包名
@@ -219,7 +221,7 @@ namespace OneClick.VRConverter.Editor
         [MenuItem(MenuPath)]
         public static void OpenWindow()
         {
-            var window = GetWindow<VRProjectConverterWindow>("一键VR转换");
+            var window = GetWindow<VRProjectConverterWindow>(Localization.Get("Window.Title"));
             window.minSize = new Vector2(420, 320);
             window.Log(Localization.Get("Log.OpenTool"));
             
@@ -509,7 +511,7 @@ namespace OneClick.VRConverter.Editor
                     GUILayout.Space(8);
                     
                     // 诊断报告按钮
-                    if (GUILayout.Button("诊断报告", GUILayout.Width(100)))
+                    if (GUILayout.Button(Localization.Get("Button.DiagnosticReport"), GUILayout.Width(100)))
                     {
                         GenerateDiagnosticReport();
                     }
@@ -560,15 +562,15 @@ namespace OneClick.VRConverter.Editor
             {
                 var report = DiagnosticReporter.GenerateReport();
                 var defaultPath = Path.Combine(Application.dataPath, "..", $"VRConverter_Diagnostic_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
-                var exportPath = EditorUtility.SaveFilePanel("导出诊断报告", "", Path.GetFileName(defaultPath), "txt");
+                var exportPath = EditorUtility.SaveFilePanel(Localization.Get("Dialog.ExportDiagnosticReport"), "", Path.GetFileName(defaultPath), "txt");
                 
                 if (!string.IsNullOrEmpty(exportPath))
                 {
                     if (DiagnosticReporter.ExportReport(exportPath, out var error))
                     {
                         EditorUtility.DisplayDialog(
-                            Localization.Get("Success.LogExported", ""),
-                            $"诊断报告已导出到:\n{exportPath}",
+                            Localization.Get("Dialog.Success"),
+                            Localization.Get("Dialog.DiagnosticReportExported", exportPath),
                             Localization.Get("Button.OK"));
                         EditorUtility.RevealInFinder(exportPath);
                     }
@@ -634,24 +636,58 @@ namespace OneClick.VRConverter.Editor
 
             var rows = new[]
             {
-                new DiagnosticRow("Unity 版本", versionValue, versionStatus, versionHint),
-                new DiagnosticRow("渲染管线", diagnostics.RenderPipelineLabel, true, diagnostics.RenderPipelineHint),
-                new DiagnosticRow("XR Management", diagnostics.HasXrManagement ? "已检测到" : "尚未安装", diagnostics.HasXrManagement,
-                    diagnostics.HasXrManagement ? "可直接配置 XRGeneralSettings。" : "建议先通过第 1 步或 Package Manager 导入 XR Management。"),
-                new DiagnosticRow("OpenXR Loader", diagnostics.HasOpenXr ? "已就绪" : "未检测到", diagnostics.HasOpenXr,
-                    diagnostics.HasOpenXr ? "可直接为 Standalone / Android 启用。" : "请确认 com.unity.xr.openxr 已导入。"),
-                new DiagnosticRow("XR Interaction Toolkit", diagnostics.HasXri ? "已导入" : "未导入", diagnostics.HasXri,
-                    diagnostics.HasXri ? "将优先创建 XR Origin（Action Based）。" : "缺少时将退回基础 VRRig。"),
-                new DiagnosticRow("输入系统", diagnostics.HasNewInputSystem ? "新输入系统已启用" : "建议启用新输入系统", diagnostics.HasNewInputSystem,
+                new DiagnosticRow(
+                    Localization.Get("Compatibility.UnityVersion"), 
+                    versionValue, 
+                    versionStatus, 
+                    versionHint),
+                new DiagnosticRow(
+                    Localization.Get("Compatibility.RenderPipeline"), 
+                    diagnostics.RenderPipelineLabel, 
+                    true, 
+                    diagnostics.RenderPipelineHint),
+                new DiagnosticRow(
+                    Localization.Get("Compatibility.XRManagement"), 
+                    diagnostics.HasXrManagement ? Localization.Get("Compatibility.Detected") : Localization.Get("Compatibility.NotInstalled"), 
+                    diagnostics.HasXrManagement,
+                    diagnostics.HasXrManagement 
+                        ? Localization.Get("Compatibility.XRManagement.Hint.Installed")
+                        : Localization.Get("Compatibility.XRManagement.Hint.NotInstalled")),
+                new DiagnosticRow(
+                    Localization.Get("Compatibility.OpenXR"), 
+                    diagnostics.HasOpenXr ? Localization.Get("Compatibility.Ready") : Localization.Get("Compatibility.NotDetected"), 
+                    diagnostics.HasOpenXr,
+                    diagnostics.HasOpenXr 
+                        ? Localization.Get("Compatibility.OpenXR.Hint.Installed")
+                        : Localization.Get("Compatibility.OpenXR.Hint.NotInstalled")),
+                new DiagnosticRow(
+                    Localization.Get("Compatibility.XRInteractionToolkit"), 
+                    diagnostics.HasXri ? Localization.Get("Compatibility.Imported") : Localization.Get("Compatibility.NotImported"), 
+                    diagnostics.HasXri,
+                    diagnostics.HasXri 
+                        ? Localization.Get("Compatibility.XRInteractionToolkit.Hint.Installed")
+                        : Localization.Get("Compatibility.XRInteractionToolkit.Hint.NotInstalled")),
+                new DiagnosticRow(
+                    Localization.Get("Compatibility.InputSystem"), 
+                    diagnostics.HasNewInputSystem ? Localization.Get("Compatibility.InputSystem.Enabled") : Localization.Get("Compatibility.InputSystem.Recommended"), 
+                    diagnostics.HasNewInputSystem,
                     diagnostics.HasNewInputSystem
-                        ? "可自动绑定 XRI Default Input Actions。"
-                        : "未检测到 Unity Input System 类型，可能需要在 Player Settings 中切换或安装该包。"),
-                new DiagnosticRow("VR 模拟设备", diagnostics.HasVrSimulator ? "已配置" : "未配置", diagnostics.HasVrSimulator,
+                        ? Localization.Get("Compatibility.InputSystem.Hint.Enabled")
+                        : Localization.Get("Compatibility.InputSystem.Hint.NotEnabled")),
+                new DiagnosticRow(
+                    Localization.Get("Compatibility.VRSimulator"), 
+                    diagnostics.HasVrSimulator ? Localization.Get("Compatibility.Configured") : Localization.Get("Compatibility.NotConfigured"), 
+                    diagnostics.HasVrSimulator,
                     diagnostics.HasVrSimulator
-                        ? "进入 Play 模式后自动实例化 XR Device Simulator。"
-                        : "将在傻瓜式模式下一键配置，或在专业模式中勾选“配置 VR 模拟设备”。"),
-                new DiagnosticRow("版本控制助手", diagnostics.HasGitAssistant ? "已安装" : "未安装", diagnostics.HasGitAssistant,
-                    diagnostics.HasGitAssistant ? "可直接使用快速备份 / 回滚。" : "建议先导入 com.fire.gitassistant，以提升备份体验。",
+                        ? Localization.Get("Compatibility.VRSimulator.Hint.Configured")
+                        : Localization.Get("Compatibility.VRSimulator.Hint.NotConfigured")),
+                new DiagnosticRow(
+                    Localization.Get("Compatibility.VersionControl"), 
+                    diagnostics.HasGitAssistant ? Localization.Get("Compatibility.Installed") : Localization.Get("Compatibility.NotInstalled"), 
+                    diagnostics.HasGitAssistant,
+                    diagnostics.HasGitAssistant 
+                        ? Localization.Get("Compatibility.VersionControl.Hint.Installed")
+                        : Localization.Get("Compatibility.VersionControl.Hint.NotInstalled"),
                     gitAssistantAction)
             };
 
@@ -681,10 +717,10 @@ namespace OneClick.VRConverter.Editor
         {
             return status switch
             {
-                CompatibilityStatus.Supported => "兼容",
-                CompatibilityStatus.Warning => "警告",
-                CompatibilityStatus.Unsupported => "不兼容",
-                _ => "未知"
+                CompatibilityStatus.Supported => Localization.Get("Compatibility.Status.Compatible"),
+                CompatibilityStatus.Warning => Localization.Get("Compatibility.Status.Warning"),
+                CompatibilityStatus.Unsupported => Localization.Get("Compatibility.Status.Incompatible"),
+                _ => Localization.Get("Compatibility.Status.Unknown", "未知")
             };
         }
 
@@ -1000,13 +1036,13 @@ namespace OneClick.VRConverter.Editor
             var pipelineAsset = GraphicsSettings.currentRenderPipeline;
             if (pipelineAsset == null)
             {
-                diagnostics.RenderPipelineLabel = "内置渲染管线";
-                diagnostics.RenderPipelineHint = "使用 Built-in Render Pipeline，可直接使用模板配置。";
+                diagnostics.RenderPipelineLabel = Localization.Get("Compatibility.RenderPipeline.BuiltIn");
+                diagnostics.RenderPipelineHint = Localization.Get("Compatibility.RenderPipeline.BuiltInHint");
             }
             else
             {
                 diagnostics.RenderPipelineLabel = pipelineAsset.GetType().Name.Replace("PipelineAsset", "");
-                diagnostics.RenderPipelineHint = $"检测到 {pipelineAsset.name}，如使用 URP/HDRP，请确认对应 XR Renderer 已启用。";
+                diagnostics.RenderPipelineHint = Localization.Get("Compatibility.RenderPipeline.Detected", pipelineAsset.name);
             }
 
             diagnostics.HasXrManagement = FindType("UnityEngine.XR.Management.XRGeneralSettings, Unity.XR.Management") != null;
@@ -3121,7 +3157,7 @@ namespace OneClick.VRConverter.Editor
             message = string.Empty;
             if (!IsGitAssistantInstalled())
             {
-                message = "未检测到版本控制助手。";
+                message = Localization.Get("Error.GitAssistantNotDetected", "未检测到版本控制助手。");
                 return false;
             }
 
@@ -3176,7 +3212,7 @@ namespace OneClick.VRConverter.Editor
             var utilityType = GetGitAssistantUtilityType();
             if (utilityType == null)
             {
-                error = "未安装版本控制助手。";
+                error = Localization.Get("Error.GitAssistantNotInstalled", "未安装版本控制助手。");
                 return false;
             }
 
@@ -3377,7 +3413,7 @@ namespace OneClick.VRConverter.Editor
 
                 if (packagesToRemove.Count > 0)
                 {
-                    Log($"检测到 {packagesToRemove.Count} 个 XR 相关包需要移除");
+                    Log(Localization.Get("Log.XRPackagesToRemove", packagesToRemove.Count));
                 }
 
                 progress.UpdateProgress(0.4f, "移除 XR 包依赖...");
@@ -3517,7 +3553,7 @@ namespace OneClick.VRConverter.Editor
                         Logger.LogWarning($"触发包管理器刷新时出错: {ex.Message}");
                     }
                     
-                    Log("已移除 XR 包依赖，Unity 正在重新解析包...");
+                    Log(Localization.Get("Log.XRPackagesRemoved"));
                     
                     // 显示重要提示
                     var message = "XR 包移除完成！\n\n" +
@@ -3577,7 +3613,7 @@ namespace OneClick.VRConverter.Editor
                         {
                             defineList.Remove(xrDefine);
                             modified = true;
-                            Log($"已从 {targetGroup} 的 Scripting Define Symbols 中移除: {xrDefine}");
+                            Log(Localization.Get("Log.ScriptingDefineSymbolRemoved", targetGroup, xrDefine));
                         }
                     }
 
@@ -3591,7 +3627,7 @@ namespace OneClick.VRConverter.Editor
             catch (Exception ex)
             {
                 var errorMsg = ErrorHandler.HandleException(ex, "清理 Scripting Define Symbols", showDialog: false);
-                Log($"清理 Scripting Define Symbols 时出错: {errorMsg}");
+                Log(Localization.Get("Log.ErrorCleaningScriptingDefineSymbols", errorMsg));
             }
         }
 
@@ -3766,7 +3802,7 @@ namespace OneClick.VRConverter.Editor
             catch (Exception ex)
             {
                 var errorMsg = ErrorHandler.HandleException(ex, "清理 asmdef 文件", showDialog: false);
-                Log($"清理 asmdef 文件时出错: {errorMsg}");
+                Log(Localization.Get("Log.ErrorCleaningAsmdef", errorMsg));
             }
         }
 
@@ -3790,7 +3826,7 @@ namespace OneClick.VRConverter.Editor
 
                 if (perBuildType == null || generalType == null || managerType == null)
                 {
-                    Log("未检测到 XR Management，可能已移除，跳过项目设置恢复");
+                    Log(Localization.Get("Log.XRManagementNotDetected", "未检测到 XR Management，可能已移除，跳过项目设置恢复"));
                     return;
                 }
 
@@ -3798,14 +3834,14 @@ namespace OneClick.VRConverter.Editor
                 var perBuildAsset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(GeneratedGeneralSettingsAsset);
                 if (perBuildAsset == null)
                 {
-                    Log("未找到 XR General Settings 资产，跳过恢复");
+                    Log(Localization.Get("Log.XRGeneralSettingsNotFound"));
                     return;
                 }
 
                 var getMethod = perBuildType.GetMethod("SettingsForBuildTarget", new[] { typeof(BuildTargetGroup) });
                 if (getMethod == null)
                 {
-                    Log("无法获取 XR 设置，跳过恢复");
+                    Log(Localization.Get("Log.CannotGetXRSettings"));
                     return;
                 }
 
@@ -4041,7 +4077,7 @@ namespace OneClick.VRConverter.Editor
             {
                 if (Directory.Exists(GeneratedRootFolder))
                 {
-                    Log($"正在清理生成的 VR 资源目录: {GeneratedRootFolder}");
+                    Log(Localization.Get("Log.CleaningGeneratedVrAssets", GeneratedRootFolder));
                     
                     // 删除整个 VRConverterGenerated 目录
                     FileUtil.DeleteFileOrDirectory(GeneratedRootFolder);
@@ -4060,7 +4096,7 @@ namespace OneClick.VRConverter.Editor
             catch (Exception ex)
             {
                 var errorMsg = ErrorHandler.HandleException(ex, "清理生成的 VR 资源", showDialog: false);
-                Log($"清理生成的 VR 资源时出错: {errorMsg}");
+                Log(Localization.Get("Log.ErrorCleaningGeneratedVrAssets", errorMsg));
             }
         }
 
@@ -4188,7 +4224,7 @@ namespace OneClick.VRConverter.Editor
             catch (Exception ex)
             {
                 var errorMsg = ErrorHandler.HandleException(ex, "处理依赖 XR 的脚本", showDialog: false);
-                Log($"处理依赖 XR 的脚本时出错: {errorMsg}");
+                Log(Localization.Get("Log.ErrorProcessingXrDependentScripts", errorMsg));
             }
         }
 
@@ -4264,7 +4300,7 @@ namespace OneClick.VRConverter.Editor
                 
                 if (!Directory.Exists(packageCachePath))
                 {
-                    Log("PackageCache 目录不存在，跳过检查");
+                    Log(Localization.Get("Log.PackageCacheNotExists"));
                     return;
                 }
 
@@ -4301,24 +4337,24 @@ namespace OneClick.VRConverter.Editor
 
                 if (xrPackagesFound.Count > 0)
                 {
-                    Log($"检测到 PackageCache 中有 {xrPackagesFound.Count} 个 XR 相关包目录");
-                    Log("这些是 Unity 官方包，不应在运行时删除");
-                    Log("转换完成后，请关闭 Unity 编辑器，然后手动删除以下目录：");
+                    Log(Localization.Get("Log.PackageCacheXrPackagesFound", xrPackagesFound.Count));
+                    Log(Localization.Get("Log.PackageCacheOfficialPackages"));
+                    Log(Localization.Get("Log.PackageCacheManualCleanupRequired"));
                     foreach (var pkg in xrPackagesFound)
                     {
-                        Log($"  - Library/PackageCache/{pkg}");
+                        Log(Localization.Get("Log.PackageCachePackagePath", pkg));
                     }
-                    Log("删除后重新打开 Unity，Unity 会自动清理不再需要的包缓存");
+                    Log(Localization.Get("Log.PackageCacheAfterCleanup"));
                 }
                 else
                 {
-                    Log("PackageCache 中未找到 XR 相关包");
+                    Log(Localization.Get("Log.NoXrPackagesInCache"));
                 }
             }
             catch (Exception ex)
             {
                 var errorMsg = ErrorHandler.HandleException(ex, "检查 PackageCache", showDialog: false);
-                Log($"检查 PackageCache 时出错: {errorMsg}");
+                Log(Localization.Get("Log.ErrorCheckingPackageCache", errorMsg));
             }
         }
 

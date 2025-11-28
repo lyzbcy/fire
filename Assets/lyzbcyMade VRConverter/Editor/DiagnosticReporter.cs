@@ -19,23 +19,23 @@ namespace OneClick.VRConverter.Editor
         public static string GenerateReport()
         {
             var report = new StringBuilder();
-            report.AppendLine("=== VR Converter 诊断报告 ===");
-            report.AppendLine($"生成时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            report.AppendLine(Localization.Get("Diagnostic.Report.Title"));
+            report.AppendLine(Localization.Get("Diagnostic.Report.GeneratedTime", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")));
             report.AppendLine();
 
             // Unity 版本信息
-            report.AppendLine("## Unity 版本信息");
+            report.AppendLine(Localization.Get("Diagnostic.Report.UnityVersion"));
             var versionInfo = UnityVersionChecker.GetCompatibilityInfo();
-            report.AppendLine($"当前版本: {versionInfo.CurrentVersion}");
-            report.AppendLine($"兼容性状态: {versionInfo.Status}");
+            report.AppendLine(Localization.Get("Diagnostic.Report.CurrentVersion", versionInfo.CurrentVersion));
+            report.AppendLine(Localization.Get("Diagnostic.Report.CompatibilityStatus", versionInfo.Status.ToString()));
             if (!string.IsNullOrEmpty(versionInfo.Recommendation))
             {
-                report.AppendLine($"说明: {versionInfo.Recommendation}");
+                report.AppendLine(Localization.Get("Diagnostic.Report.Description", versionInfo.Recommendation));
             }
             report.AppendLine();
 
             // 包信息
-            report.AppendLine("## XR 包状态");
+            report.AppendLine(Localization.Get("Diagnostic.Report.XRPackageStatus"));
             var requiredPackages = new[]
             {
                 "com.unity.xr.management",
@@ -47,85 +47,89 @@ namespace OneClick.VRConverter.Editor
             foreach (var packageName in requiredPackages)
             {
                 var isInstalled = IsPackageInstalled(packageName);
-                report.AppendLine($"- {packageName}: {(isInstalled ? "✓ 已安装" : "✗ 未安装")}");
+                report.AppendLine(Localization.Get("Diagnostic.Report.PackageStatus", 
+                    packageName, 
+                    isInstalled ? Localization.Get("Diagnostic.Report.Installed") : Localization.Get("Diagnostic.Report.NotInstalled")));
             }
             report.AppendLine();
 
             // 项目设置
-            report.AppendLine("## 项目设置");
-            report.AppendLine($"XR 管理已启用: {IsXrManagementEnabled()}");
-            report.AppendLine($"OpenXR Loader 已启用: {IsOpenXrLoaderEnabled()}");
+            report.AppendLine(Localization.Get("Diagnostic.Report.ProjectSettings"));
+            report.AppendLine(Localization.Get("Diagnostic.Report.XRManagementEnabled", IsXrManagementEnabled().ToString()));
+            report.AppendLine(Localization.Get("Diagnostic.Report.OpenXREnabled", IsOpenXrLoaderEnabled().ToString()));
             report.AppendLine();
 
             // 场景信息
-            report.AppendLine("## 当前场景信息");
+            report.AppendLine(Localization.Get("Diagnostic.Report.SceneInfo"));
             var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             if (activeScene.IsValid())
             {
-                report.AppendLine($"场景名称: {activeScene.name}");
-                report.AppendLine($"场景路径: {activeScene.path}");
-                report.AppendLine($"场景中是否有 XR Origin: {HasXrOriginInScene()}");
-                report.AppendLine($"场景中是否有 Main Camera: {HasMainCameraInScene()}");
+                report.AppendLine(Localization.Get("Diagnostic.Report.SceneName", activeScene.name));
+                report.AppendLine(Localization.Get("Diagnostic.Report.ScenePath", activeScene.path));
+                report.AppendLine(Localization.Get("Diagnostic.Report.HasXROrigin", HasXrOriginInScene().ToString()));
+                report.AppendLine(Localization.Get("Diagnostic.Report.HasMainCamera", HasMainCameraInScene().ToString()));
             }
             else
             {
-                report.AppendLine("未加载场景");
+                report.AppendLine(Localization.Get("Diagnostic.Report.NoSceneLoaded"));
             }
             report.AppendLine();
 
             // 系统信息
-            report.AppendLine("## 系统信息");
-            report.AppendLine($"操作系统: {SystemInfo.operatingSystem}");
-            report.AppendLine($"处理器: {SystemInfo.processorType}");
-            report.AppendLine($"内存: {SystemInfo.systemMemorySize} MB");
-            report.AppendLine($"图形设备: {SystemInfo.graphicsDeviceName}");
-            report.AppendLine($"图形 API: {SystemInfo.graphicsDeviceType}");
+            report.AppendLine(Localization.Get("Diagnostic.Report.SystemInfo"));
+            report.AppendLine(Localization.Get("Diagnostic.Report.OS", SystemInfo.operatingSystem));
+            report.AppendLine(Localization.Get("Diagnostic.Report.Processor", SystemInfo.processorType));
+            report.AppendLine(Localization.Get("Diagnostic.Report.Memory", SystemInfo.systemMemorySize));
+            report.AppendLine(Localization.Get("Diagnostic.Report.GraphicsDevice", SystemInfo.graphicsDeviceName));
+            report.AppendLine(Localization.Get("Diagnostic.Report.GraphicsAPI", SystemInfo.graphicsDeviceType.ToString()));
             report.AppendLine();
 
             // 日志信息
-            report.AppendLine("## 日志信息");
+            report.AppendLine(Localization.Get("Diagnostic.Report.LogInfo"));
             var logFile = Logger.GetCurrentLogFilePath();
             if (!string.IsNullOrEmpty(logFile) && File.Exists(logFile))
             {
-                report.AppendLine($"日志文件路径: {logFile}");
+                report.AppendLine(Localization.Get("Diagnostic.Report.LogFilePath", logFile));
                 var logInfo = new FileInfo(logFile);
-                report.AppendLine($"日志文件大小: {logInfo.Length / 1024.0:F2} KB");
-                report.AppendLine($"最后修改时间: {logInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss}");
+                report.AppendLine(Localization.Get("Diagnostic.Report.LogFileSize", (logInfo.Length / 1024.0).ToString("F2")));
+                report.AppendLine(Localization.Get("Diagnostic.Report.LogLastModified", logInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")));
             }
             else
             {
-                report.AppendLine("日志文件不存在");
+                report.AppendLine(Localization.Get("Diagnostic.Report.LogFileNotExists"));
             }
             report.AppendLine();
 
             // 备份信息
-            report.AppendLine("## 备份信息");
+            report.AppendLine(Localization.Get("Diagnostic.Report.BackupInfo"));
             var backups = OperationBackup.GetAvailableBackups();
             var backupCount = backups.Count;
-            report.AppendLine($"备份数量: {backupCount}");
+            report.AppendLine(Localization.Get("Diagnostic.Report.BackupCount", backupCount));
             if (backupCount > 0)
             {
-                report.AppendLine("最近的备份:");
+                report.AppendLine(Localization.Get("Diagnostic.Report.RecentBackups"));
                 foreach (var backup in backups.Take(5))
                 {
-                    report.AppendLine($"  - {backup.OperationName} ({backup.Timestamp:yyyy-MM-dd HH:mm:ss})");
+                    report.AppendLine(Localization.Get("Diagnostic.Report.BackupItem", 
+                        backup.OperationName, 
+                        backup.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")));
                 }
             }
             report.AppendLine();
 
             // 诊断建议
-            report.AppendLine("## 诊断建议");
+            report.AppendLine(Localization.Get("Diagnostic.Report.Suggestions"));
             var suggestions = GetDiagnosticSuggestions(versionInfo);
             if (suggestions.Count > 0)
             {
                 foreach (var suggestion in suggestions)
                 {
-                    report.AppendLine($"- {suggestion}");
+                    report.AppendLine(Localization.Get("Diagnostic.Report.SuggestionItem", suggestion));
                 }
             }
             else
             {
-                report.AppendLine("未发现明显问题");
+                report.AppendLine(Localization.Get("Diagnostic.Report.NoIssues"));
             }
 
             return report.ToString();
@@ -331,11 +335,12 @@ namespace OneClick.VRConverter.Editor
 
             if (versionInfo.Status == CompatibilityStatus.Unsupported)
             {
-                suggestions.Add($"Unity 版本不兼容，建议使用 Unity {versionInfo.MinVersion} - {versionInfo.MaxVersion}");
+                suggestions.Add(Localization.Get("Diagnostic.Suggestion.UnsupportedVersion", 
+                    versionInfo.MinVersion, versionInfo.MaxVersion));
             }
             else if (versionInfo.Status == CompatibilityStatus.Warning)
             {
-                suggestions.Add("Unity 版本可能有兼容性问题，建议更新到最新版本");
+                suggestions.Add(Localization.Get("Diagnostic.Suggestion.VersionWarning"));
             }
 
             var requiredPackages = new[]
@@ -350,24 +355,24 @@ namespace OneClick.VRConverter.Editor
             {
                 if (!IsPackageInstalled(packageName))
                 {
-                    suggestions.Add($"缺少必要的 XR 包: {packageName}，请执行第 1 步安装");
+                    suggestions.Add(Localization.Get("Diagnostic.Suggestion.MissingPackage", packageName));
                 }
             }
 
             if (!IsXrManagementEnabled())
             {
-                suggestions.Add("XR Management 未启用，请执行第 2 步配置项目设置");
+                suggestions.Add(Localization.Get("Diagnostic.Suggestion.XRManagementNotEnabled"));
             }
 
             if (!IsOpenXrLoaderEnabled())
             {
-                suggestions.Add("OpenXR Loader 未启用，请执行第 2 步配置项目设置");
+                suggestions.Add(Localization.Get("Diagnostic.Suggestion.OpenXRNotEnabled"));
             }
 
             var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             if (activeScene.IsValid() && !HasXrOriginInScene())
             {
-                suggestions.Add("当前场景中没有 XR Origin，请执行第 3 步转换场景");
+                suggestions.Add(Localization.Get("Diagnostic.Suggestion.NoXROrigin"));
             }
 
             return suggestions;
