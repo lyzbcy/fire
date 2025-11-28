@@ -113,7 +113,7 @@ namespace PoseController.Editor
                     DrawSystemStatusCard();
                     DrawCameraCard();
                     DrawSkeletonCard();
-                    DrawActionCard();
+            DrawActionCard();
                     DrawMovementCard();
                     DrawMappingCard();
                     DrawDebugCard();
@@ -132,18 +132,18 @@ namespace PoseController.Editor
                        PoseControllerLocalization.Tr("module.status"),
                        PoseControllerLocalization.Tr("module.status.subtitle")))
             {
-                DrawStatusRow("PoseDetector", _detector != null);
+            DrawStatusRow("PoseDetector", _detector != null);
                 DrawStatusRow("ActionClassifier", _classifier != null);
-                DrawStatusRow("PoseInputMapper", _mapper != null);
-                DrawStatusRow("WebcamProvider", _webcam != null && _webcam.HasCamera);
+            DrawStatusRow("PoseInputMapper", _mapper != null);
+            DrawStatusRow("WebcamProvider", _webcam != null && _webcam.HasCamera);
 
                 EditorStylesLibrary.DrawDivider();
 
                 if (GUILayout.Button(PoseControllerLocalization.Tr("status.refresh"),
                         EditorStylesLibrary.ToolbarButton, GUILayout.Height(26)))
-                {
-                    FindDependencies();
-                }
+            {
+                FindDependencies();
+            }
             }
         }
 
@@ -173,24 +173,24 @@ namespace PoseController.Editor
                     PoseControllerLocalization.Tr("camera.skeleton"), _showSkeleton, EditorStylesLibrary.Body);
                 GUILayout.EndHorizontal();
 
-                Rect rect = GUILayoutUtility.GetAspectRect(16f / 9f, GUILayout.ExpandWidth(true));
+            Rect rect = GUILayoutUtility.GetAspectRect(16f / 9f, GUILayout.ExpandWidth(true));
 
-                if (!Application.isPlaying)
-                {
+            if (!Application.isPlaying)
+            {
                     EditorGUI.DrawRect(rect, new Color(0.07f, 0.07f, 0.07f));
                     EditorGUI.LabelField(rect, PoseControllerLocalization.Tr("camera.noFrame"),
                         EditorStyles.centeredGreyMiniLabel);
-                }
+            }
                 else if (_webcam != null && _enableCamera && _webcam.TryGetFrame(out _previewTexture) && _previewTexture != null)
-                {
-                    GUI.DrawTexture(rect, _previewTexture, ScaleMode.ScaleToFit);
+            {
+                GUI.DrawTexture(rect, _previewTexture, ScaleMode.ScaleToFit);
                     if (_showSkeleton && _detector != null && _detector.IsPoseValid)
-                    {
-                        DrawSkeletonOverlay(rect, _previewTexture);
-                    }
-                }
-                else
                 {
+                    DrawSkeletonOverlay(rect, _previewTexture);
+                }
+            }
+            else
+            {
                     EditorGUI.DrawRect(rect, new Color(0.2f, 0.2f, 0.22f));
                     EditorGUI.LabelField(rect, PoseControllerLocalization.Tr("camera.wait"),
                         EditorStyles.centeredGreyMiniLabel);
@@ -277,7 +277,7 @@ namespace PoseController.Editor
                 {
                     GUILayout.Label(PoseControllerLocalization.Tr("motion.managerMissing"), EditorStylesLibrary.Secondary);
                     return;
-                }
+            }
 
                 GUILayout.BeginHorizontal();
                 GUILayout.Label(PoseControllerLocalization.Tr("motion.move"), EditorStylesLibrary.Body, GUILayout.Width(140));
@@ -516,6 +516,6 @@ namespace PoseController.Editor
             {
                 Application.OpenURL("https://docs.unity3d.com/");
             }
-        }
     }
+}
 }

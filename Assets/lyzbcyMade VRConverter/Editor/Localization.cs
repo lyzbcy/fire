@@ -260,6 +260,36 @@ namespace OneClick.VRConverter.Editor
             AddTranslation("ProjectType.VR", "当前项目类型：VR 项目", "Current Project Type: VR Project", "現在のプロジェクトタイプ：VRプロジェクト");
             AddTranslation("ProjectType.Standard3D", "当前项目类型：3D 项目", "Current Project Type: 3D Project", "現在のプロジェクトタイプ：3Dプロジェクト");
             AddTranslation("ProjectType.Unknown", "当前项目类型：未知", "Current Project Type: Unknown", "現在のプロジェクトタイプ：不明");
+            
+            // 反向转换成功消息
+            AddTranslation("Log.ReverseConversionComplete", "3D 项目转换完成，可以使用下方 Git 按钮创建备份或回滚。", 
+                "3D project conversion complete, you can use the Git button below to create backup or rollback.",
+                "3Dプロジェクト変換が完了しました。下のGitボタンを使用してバックアップまたはロールバックできます。");
+            
+            // 反向转换成功对话框
+            AddTranslation("Dialog.ReverseConversionSuccess", "转换成功", "Conversion Successful", "変換成功");
+            AddTranslation("Dialog.ReverseConversionSuccess.Message",
+                "🎉 3D 转换成功！\n\n" +
+                "您的项目已成功转换为 3D 项目。\n\n" +
+                "主要变更：\n" +
+                "• XR 包已从 manifest.json 移除\n" +
+                "• XR 项目设置已禁用\n" +
+                "• 场景中的 XR Origin/VRRig 已移除\n" +
+                "• Main Camera 已恢复\n\n",
+                "🎉 3D Conversion Successful!\n\n" +
+                "Your project has been successfully converted to a 3D project.\n\n" +
+                "Main Changes:\n" +
+                "• XR packages removed from manifest.json\n" +
+                "• XR project settings disabled\n" +
+                "• XR Origin/VRRig removed from scene\n" +
+                "• Main Camera restored\n\n",
+                "🎉 3D変換成功！\n\n" +
+                "プロジェクトが正常に3Dプロジェクトに変換されました。\n\n" +
+                "主な変更：\n" +
+                "• manifest.jsonからXRパッケージを削除\n" +
+                "• XRプロジェクト設定を無効化\n" +
+                "• シーンからXR Origin/VRRigを削除\n" +
+                "• Main Cameraを復元\n\n");
 
             // 步骤卡片
             AddTranslation("Step1.Title", "第 1 步：准备 XR 依赖包", "Step 1: Prepare XR Dependency Packages", "ステップ1：XR依存パッケージの準備");

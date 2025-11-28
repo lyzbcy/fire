@@ -97,7 +97,7 @@ namespace PoseController.Editor
         }
 
         public static IDisposable CardScope(string title = null, string subtitle = null)
-        {
+                {
             return new CardScopeInternal(title, subtitle);
         }
 
@@ -129,7 +129,7 @@ namespace PoseController.Editor
         private static GUIStyle CreateLabel(FontStyle style, int size, Color color)
         {
             return new GUIStyle(EditorStyles.label)
-            {
+                    {
                 fontStyle = style,
                 fontSize = size,
                 normal = { textColor = color },
@@ -146,7 +146,7 @@ namespace PoseController.Editor
                 if (!string.IsNullOrEmpty(title))
                 {
                     GUILayout.Label(title, SectionTitle);
-                }
+            }
 
                 if (!string.IsNullOrEmpty(subtitle))
                 {
@@ -157,8 +157,8 @@ namespace PoseController.Editor
                 {
                     GUILayout.Space(4);
                     DrawDivider(4);
-                }
-            }
+    }
+}
 
             public void Dispose()
             {

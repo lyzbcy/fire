@@ -837,19 +837,19 @@ namespace OneClick.VRConverter.Editor
             }
             else
             {
-                EditorGUILayout.LabelField(
-                    Localization.Get("QuickStart.Description"),
-                    EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField(
+                Localization.Get("QuickStart.Description"),
+                EditorStyles.wordWrappedMiniLabel);
 
-                EditorGUILayout.Space(12);
+            EditorGUILayout.Space(12);
 
-                var content = new GUIContent(
-                    Localization.Get("Guided.RunAll.Title"),
-                    Localization.Get("QuickStart.RunAll.Tooltip"));
+            var content = new GUIContent(
+                Localization.Get("Guided.RunAll.Title"),
+                Localization.Get("QuickStart.RunAll.Tooltip"));
 
-                if (GUILayout.Button(content, _primaryButtonStyle))
-                {
-                    RunAllSteps();
+            if (GUILayout.Button(content, _primaryButtonStyle))
+            {
+                RunAllSteps();
                 }
             }
 
@@ -1204,41 +1204,46 @@ namespace OneClick.VRConverter.Editor
                     bool converted = ConvertCurrentSceneTo3D();
                     if (converted)
                     {
-                        HandleConversionCompleted();
+                        HandleConversionCompleted(isReverseConversion: true);
                     }
+                }
+                else
+                {
+                    // 即使没有转换场景，如果其他操作成功，也显示完成提示
+                    HandleConversionCompleted(isReverseConversion: true);
                 }
             }
             else
             {
                 // 正向转换（3D -> VR）
-                if (plan.EnsurePackages)
-                {
-                    EnsureXrPackages();
-                }
+            if (plan.EnsurePackages)
+            {
+                EnsureXrPackages();
+            }
 
-                if ((plan.ConfigureProjectSettings || plan.ConvertScene) && EditorApplication.isCompiling)
-                {
-                    Log(Localization.Get("Log.Compiling"));
-                    return;
-                }
+            if ((plan.ConfigureProjectSettings || plan.ConvertScene) && EditorApplication.isCompiling)
+            {
+                Log(Localization.Get("Log.Compiling"));
+                return;
+            }
 
-                if (plan.ConfigureProjectSettings)
-                {
-                    ConfigureXrProjectSettings(plan.TargetGroups);
-                }
+            if (plan.ConfigureProjectSettings)
+            {
+                ConfigureXrProjectSettings(plan.TargetGroups);
+            }
 
-                if (plan.ConvertScene)
+            if (plan.ConvertScene)
+            {
+                bool converted = ConvertCurrentSceneToVr(plan.RigStrategy, plan.DisableLegacyCamera);
+                if (converted)
                 {
-                    bool converted = ConvertCurrentSceneToVr(plan.RigStrategy, plan.DisableLegacyCamera);
-                    if (converted)
-                    {
-                        HandleConversionCompleted();
-                    }
+                    HandleConversionCompleted();
                 }
+            }
 
-                if (plan.ConfigureDeviceSimulator)
-                {
-                    EnsureDeviceSimulatorConfigured();
+            if (plan.ConfigureDeviceSimulator)
+            {
+                EnsureDeviceSimulatorConfigured();
                 }
             }
         }
@@ -1754,17 +1759,38 @@ namespace OneClick.VRConverter.Editor
             }
         }
 
-        private void HandleConversionCompleted()
+        private void HandleConversionCompleted(bool isReverseConversion = false)
         {
             _lastConversionSucceeded = true;
-            Log(Localization.Get("Log.ConversionComplete"));
+            
+            if (isReverseConversion)
+            {
+                Log(Localization.Get("Log.ReverseConversionComplete"));
+            }
+            else
+            {
+                Log(Localization.Get("Log.ConversionComplete"));
+            }
+            
             if (!string.IsNullOrEmpty(_lastBaselineCommitHash))
             {
                 Log(Localization.Get("Log.BaselineRecorded", _lastBaselineCommitHash));
             }
             
             // 显示用户友好的成功提示对话框
-            string successMessage = Localization.Get("Dialog.ConversionSuccess.Message");
+            string successMessage;
+            string title;
+            
+            if (isReverseConversion)
+            {
+                title = Localization.Get("Dialog.ReverseConversionSuccess");
+                successMessage = Localization.Get("Dialog.ReverseConversionSuccess.Message");
+            }
+            else
+            {
+                title = Localization.Get("Dialog.ConversionSuccess");
+                successMessage = Localization.Get("Dialog.ConversionSuccess.Message");
+            }
             
             if (!string.IsNullOrEmpty(_lastBaselineCommitHash))
             {
@@ -1773,7 +1799,7 @@ namespace OneClick.VRConverter.Editor
             
             successMessage += Localization.Get("Dialog.ConversionSuccess.Hint");
             
-            EditorUtility.DisplayDialog(Localization.Get("Dialog.ConversionSuccess"), successMessage, Localization.Get("Button.IGotIt"));
+            EditorUtility.DisplayDialog(title, successMessage, Localization.Get("Button.IGotIt"));
         }
 
         #region XR Project Settings helpers
@@ -3297,23 +3323,94 @@ namespace OneClick.VRConverter.Editor
                 bool modified = false;
                 progress.UpdateProgress(0.3f, "移除 XR 包依赖...");
                 
-                foreach (var pkg in RequiredPackages)
+                // 使用逐行处理的方法，更可靠
+                var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.None).ToList();
+                var newLines = new List<string>();
+                bool inDependencies = false;
+                
+                for (int i = 0; i < lines.Count; i++)
                 {
-                    if (TryGetManifestPackageVersion(text, pkg, out var version))
+                    var line = lines[i];
+                    var trimmedLine = line.Trim();
+                    
+                    // 检测 dependencies 块开始
+                    if (trimmedLine.Contains("\"dependencies\""))
                     {
-                        // 移除包依赖
-                        var pattern = $"\"{pkg}\"\\s*:\\s*\"[^\"]+\"";
-                        var regex = new System.Text.RegularExpressions.Regex(pattern);
-                        text = regex.Replace(text, "");
-                        modified = true;
-                        Log(Localization.Get("Log.PackageRemoved", pkg));
+                        inDependencies = true;
+                        newLines.Add(line);
+                        continue;
+                    }
+                    
+                    // 检测 dependencies 块结束
+                    if (inDependencies && trimmedLine == "}")
+                    {
+                        inDependencies = false;
+                        newLines.Add(line);
+                        continue;
+                    }
+                    
+                    // 在 dependencies 块内处理
+                    if (inDependencies)
+                    {
+                        bool shouldRemove = false;
+                        foreach (var pkg in RequiredPackages)
+                        {
+                            if (trimmedLine.Contains($"\"{pkg}\""))
+                            {
+                                shouldRemove = true;
+                                modified = true;
+                                Log(Localization.Get("Log.PackageRemoved", pkg));
+                                break;
+                            }
+                        }
+                        
+                        if (!shouldRemove)
+                        {
+                            newLines.Add(line);
+                        }
+                        // 如果移除了这一行，检查下一行是否是最后一个条目（没有逗号）
+                        // 如果是，需要给前一行添加逗号
+                        else if (newLines.Count > 0)
+                        {
+                            // 检查下一行是否是最后一个条目
+                            bool isLastEntry = true;
+                            for (int j = i + 1; j < lines.Count; j++)
+                            {
+                                var nextLine = lines[j].Trim();
+                                if (nextLine == "}" || nextLine == "},")
+                                {
+                                    break;
+                                }
+                                if (!string.IsNullOrEmpty(nextLine) && !nextLine.StartsWith("//"))
+                                {
+                                    isLastEntry = false;
+                                    break;
+                                }
+                            }
+                            
+                            // 如果前一行有逗号，需要移除（因为现在它是最后一行了）
+                            if (isLastEntry && newLines.Count > 0)
+                            {
+                                var lastLine = newLines[newLines.Count - 1];
+                                if (lastLine.TrimEnd().EndsWith(","))
+                                {
+                                    newLines[newLines.Count - 1] = lastLine.TrimEnd().TrimEnd(',');
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        newLines.Add(line);
                     }
                 }
-
-                // 清理多余的逗号
-                text = System.Text.RegularExpressions.Regex.Replace(text, @",\s*,", ",");
-                text = System.Text.RegularExpressions.Regex.Replace(text, @",\s*}", "}");
-                text = System.Text.RegularExpressions.Regex.Replace(text, @"{\s*,", "{");
+                
+                text = string.Join("\n", newLines);
+                
+                // 最后清理：移除连续的逗号、行尾逗号等
+                text = System.Text.RegularExpressions.Regex.Replace(text, @",\s*,+", ",");
+                text = System.Text.RegularExpressions.Regex.Replace(text, @",(\s*\n\s*})", "$1");
+                text = System.Text.RegularExpressions.Regex.Replace(text, @"\n\s*\n\s*\n+", "\n");
 
                 if (modified)
                 {

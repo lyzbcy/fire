@@ -55,55 +55,55 @@ namespace PoseController.Editor
                            PoseControllerLocalization.Tr("module.mapping"),
                            PoseControllerLocalization.Tr("mapping.editor.description")))
                 {
-                    EditorGUI.BeginChangeCheck();
+            EditorGUI.BeginChangeCheck();
                     _asset = (ActionMappingAsset)EditorGUILayout.ObjectField(
                         PoseControllerLocalization.Tr("mapping.editor.asset"),
                         _asset,
                         typeof(ActionMappingAsset),
                         false);
-                    if (EditorGUI.EndChangeCheck())
-                    {
+            if (EditorGUI.EndChangeCheck())
+            {
                         EnsureAssetList();
-                    }
+            }
 
                     GUILayout.BeginHorizontal();
                     if (GUILayout.Button(PoseControllerLocalization.Tr("mapping.editor.create"), GUILayout.Height(26)))
-                    {
-                        CreateAsset();
-                    }
+            {
+                CreateAsset();
+            }
 
                     GUI.enabled = _asset != null;
                     if (GUILayout.Button(PoseControllerLocalization.Tr("mapping.editor.save"), GUILayout.Height(26)))
-                    {
-                        EditorUtility.SetDirty(_asset);
-                        AssetDatabase.SaveAssets();
-                    }
+            {
+                EditorUtility.SetDirty(_asset);
+                AssetDatabase.SaveAssets();
+            }
                     GUI.enabled = true;
                     GUILayout.EndHorizontal();
                 }
 
-                if (_asset == null)
-                {
+            if (_asset == null)
+            {
                 GUILayout.Label(PoseControllerLocalization.Tr("mapping.editor.empty"), EditorStylesLibrary.Secondary);
-                    return;
-                }
+                return;
+            }
 
                 _scroll = EditorGUILayout.BeginScrollView(_scroll, true, true);
-                for (int i = 0; i < _asset.Bindings.Count; i++)
-                {
+            for (int i = 0; i < _asset.Bindings.Count; i++)
+            {
                     DrawBindingCard(i);
-                }
+            }
                 EditorGUILayout.EndScrollView();
 
                 GUILayout.Space(10);
                 if (GUILayout.Button(PoseControllerLocalization.Tr("mapping.binding.add"), GUILayout.Height(32)))
+            {
+                _asset.Bindings.Add(new GestureBinding
                 {
-                    _asset.Bindings.Add(new GestureBinding
-                    {
-                        GestureName = "NewGesture",
+                    GestureName = "NewGesture",
                         Key = VirtualKey.Keyboard(KeyCode.Space),
                         Hold = false
-                    });
+                });
                     EditorUtility.SetDirty(_asset);
                 }
             }
@@ -120,34 +120,34 @@ namespace PoseController.Editor
                     PoseControllerLocalization.Tr("mapping.binding.gesture"), binding.GestureName);
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button(PoseControllerLocalization.Tr("mapping.binding.delete"), GUILayout.Width(60)))
-                {
-                    _asset.Bindings.RemoveAt(index);
+            {
+                _asset.Bindings.RemoveAt(index);
                     EditorUtility.SetDirty(_asset);
-                    return;
-                }
+                return;
+            }
                 GUILayout.EndHorizontal();
 
                 EditorStylesLibrary.DrawDivider();
 
                 binding.Key.Type = (VirtualKeyType)EditorGUILayout.EnumPopup(
                     PoseControllerLocalization.Tr("mapping.binding.type"), binding.Key.Type);
-                switch (binding.Key.Type)
-                {
-                    case VirtualKeyType.Keyboard:
+            switch (binding.Key.Type)
+            {
+                case VirtualKeyType.Keyboard:
                         binding.Key.KeyboardKey = (KeyCode)EditorGUILayout.EnumPopup("Key", binding.Key.KeyboardKey);
-                        break;
-                    case VirtualKeyType.Mouse:
+                    break;
+                case VirtualKeyType.Mouse:
                         binding.Key.MouseButton = EditorGUILayout.IntSlider("Mouse", binding.Key.MouseButton, 0, 7);
-                        break;
-                    case VirtualKeyType.Gamepad:
+                    break;
+                case VirtualKeyType.Gamepad:
                         binding.Key.GamepadButton = EditorGUILayout.TextField("Gamepad", binding.Key.GamepadButton);
-                        break;
-                }
+                    break;
+            }
 
                 binding.Hold = EditorGUILayout.Toggle(PoseControllerLocalization.Tr("mapping.binding.hold"), binding.Hold);
                 GUILayout.Label(PoseControllerLocalization.Tr("mapping.binding.holdHint"), EditorStylesLibrary.Secondary);
 
-                _asset.Bindings[index] = binding;
+            _asset.Bindings[index] = binding;
                 EditorUtility.SetDirty(_asset);
             }
         }
