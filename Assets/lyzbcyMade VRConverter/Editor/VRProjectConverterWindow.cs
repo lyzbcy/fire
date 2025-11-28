@@ -1790,7 +1790,7 @@ namespace OneClick.VRConverter.Editor
             }
             else
             {
-                Log(Localization.Get("Log.ConversionComplete"));
+            Log(Localization.Get("Log.ConversionComplete"));
             }
             
             if (!string.IsNullOrEmpty(_lastBaselineCommitHash))

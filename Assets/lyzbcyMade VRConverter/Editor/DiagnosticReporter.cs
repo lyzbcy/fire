@@ -165,49 +165,152 @@ namespace OneClick.VRConverter.Editor
 
         private static bool IsXrManagementEnabled()
         {
+#if UNITY_XR_MANAGEMENT
             try
             {
-                var generalSettings = UnityEditor.XR.Management.XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(
-                    BuildTargetGroup.Standalone);
-                return generalSettings != null && generalSettings.Manager != null;
+                var perBuildTargetType = Type.GetType("UnityEditor.XR.Management.XRGeneralSettingsPerBuildTarget, Unity.XR.Management.Editor");
+                if (perBuildTargetType == null)
+                {
+                    return false;
+                }
+
+                var method = perBuildTargetType.GetMethod("XRGeneralSettingsForBuildTarget", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                if (method == null)
+                {
+                    return false;
+                }
+
+                var generalSettings = method.Invoke(null, new object[] { BuildTargetGroup.Standalone });
+                if (generalSettings == null)
+                {
+                    return false;
+                }
+
+                var managerProp = generalSettings.GetType().GetProperty("Manager");
+                if (managerProp == null)
+                {
+                    return false;
+                }
+
+                var manager = managerProp.GetValue(generalSettings);
+                return manager != null;
             }
             catch
             {
                 return false;
             }
+#else
+            return false;
+#endif
         }
 
         private static bool IsOpenXrLoaderEnabled()
         {
+#if UNITY_XR_MANAGEMENT
             try
             {
-                var generalSettings = UnityEditor.XR.Management.XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(
-                    BuildTargetGroup.Standalone);
-                if (generalSettings?.Manager == null) return false;
+                var perBuildTargetType = Type.GetType("UnityEditor.XR.Management.XRGeneralSettingsPerBuildTarget, Unity.XR.Management.Editor");
+                if (perBuildTargetType == null)
+                {
+                    return false;
+                }
 
-                var loaders = generalSettings.Manager.activeLoaders;
-                return loaders != null && loaders.Any(loader => loader != null && loader.GetType().Name.Contains("OpenXR"));
+                var method = perBuildTargetType.GetMethod("XRGeneralSettingsForBuildTarget", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                if (method == null)
+                {
+                    return false;
+                }
+
+                var generalSettings = method.Invoke(null, new object[] { BuildTargetGroup.Standalone });
+                if (generalSettings == null)
+                {
+                    return false;
+                }
+
+                var managerProp = generalSettings.GetType().GetProperty("Manager");
+                if (managerProp == null)
+                {
+                    return false;
+                }
+
+                var manager = managerProp.GetValue(generalSettings);
+                if (manager == null)
+                {
+                    return false;
+                }
+
+                var activeLoadersProp = manager.GetType().GetProperty("activeLoaders");
+                if (activeLoadersProp == null)
+                {
+                    return false;
+                }
+
+                var loaders = activeLoadersProp.GetValue(manager) as System.Collections.IEnumerable;
+                if (loaders == null)
+                {
+                    return false;
+                }
+
+                foreach (var loader in loaders)
+                {
+                    if (loader != null && loader.GetType().Name.Contains("OpenXR"))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
             }
             catch
             {
                 return false;
             }
+#else
+            return false;
+#endif
         }
 
         private static bool HasXrOriginInScene()
         {
+#if UNITY_XR_INTERACTION_TOOLKIT || UNITY_XR_CORE_UTILS
             try
             {
                 var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
                 if (!activeScene.IsValid()) return false;
 
+                var xrOriginType = Type.GetType("Unity.XR.CoreUtils.XROrigin, Unity.XR.CoreUtils");
+                if (xrOriginType == null)
+                {
+                    // 尝试其他可能的命名空间
+                    xrOriginType = Type.GetType("UnityEngine.XR.Interaction.Toolkit.XROrigin, UnityEngine.XR.Interaction.Toolkit");
+                }
+
+                if (xrOriginType == null)
+                {
+                    return false;
+                }
+
                 var rootObjects = activeScene.GetRootGameObjects();
-                return rootObjects.Any(obj => obj.GetComponentInChildren<Unity.XR.CoreUtils.XROrigin>() != null);
+                foreach (var obj in rootObjects)
+                {
+                    var component = obj.GetComponentInChildren(xrOriginType);
+                    if (component != null)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
             }
             catch
             {
                 return false;
             }
+#else
+            return false;
+#endif
         }
 
         private static bool HasMainCameraInScene()
