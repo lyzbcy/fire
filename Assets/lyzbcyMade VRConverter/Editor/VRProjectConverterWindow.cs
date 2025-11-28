@@ -32,6 +32,24 @@ namespace OneClick.VRConverter.Editor
             "com.unity.inputsystem"
         };
 
+        // 所有需要移除的 XR 相关包（包括依赖包）
+        private static readonly string[] AllXrPackages =
+        {
+            "com.unity.xr.management",
+            "com.unity.xr.core-utils",
+            "com.unity.xr.interaction.toolkit",
+            "com.unity.xr.openxr",
+            "com.unity.xr.hands",
+            "com.unity.xr.legacyinputhelpers",
+            "com.unity.xr.oculus",
+            "com.unity.xr.windowsmr",
+            "com.unity.xr.magicleap",
+            "com.unity.xr.arkit",
+            "com.unity.xr.arkit-face-tracking",
+            "com.unity.xr.arfoundation",
+            "com.unity.xr.arsubsystems"
+        };
+
         private static readonly BuildTargetGroup[] TargetGroups =
         {
             BuildTargetGroup.Standalone,
@@ -3324,7 +3342,45 @@ namespace OneClick.VRConverter.Editor
                 }
 
                 bool modified = false;
-                progress.UpdateProgress(0.3f, "移除 XR 包依赖...");
+                progress.UpdateProgress(0.3f, "检测所有 XR 相关包...");
+                
+                // 首先，从 manifest.json 中提取所有包名，检测哪些是 XR 相关的
+                var allXrPackagesFound = new List<string>();
+                try
+                {
+                    // 使用简单的 JSON 解析来查找所有 XR 包
+                    var jsonPattern = @"\""(com\.unity\.xr\.[^""]+)\""\s*:";
+                    var matches = System.Text.RegularExpressions.Regex.Matches(text, jsonPattern);
+                    foreach (System.Text.RegularExpressions.Match match in matches)
+                    {
+                        if (match.Groups.Count > 1)
+                        {
+                            var pkgName = match.Groups[1].Value;
+                            if (!allXrPackagesFound.Contains(pkgName))
+                            {
+                                allXrPackagesFound.Add(pkgName);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning($"检测 XR 包时出错: {ex.Message}");
+                }
+
+                // 合并已知的 XR 包列表和检测到的包
+                var packagesToRemove = new HashSet<string>(AllXrPackages);
+                foreach (var found in allXrPackagesFound)
+                {
+                    packagesToRemove.Add(found);
+                }
+
+                if (packagesToRemove.Count > 0)
+                {
+                    Log($"检测到 {packagesToRemove.Count} 个 XR 相关包需要移除");
+                }
+
+                progress.UpdateProgress(0.4f, "移除 XR 包依赖...");
                 
                 // 使用逐行处理的方法，更可靠
                 var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.None).ToList();
@@ -3356,13 +3412,16 @@ namespace OneClick.VRConverter.Editor
                     if (inDependencies)
                     {
                         bool shouldRemove = false;
-                        foreach (var pkg in RequiredPackages)
+                        string removedPackage = null;
+                        
+                        // 检查是否是 XR 相关包
+                        foreach (var pkg in packagesToRemove)
                         {
                             if (trimmedLine.Contains($"\"{pkg}\""))
                             {
                                 shouldRemove = true;
+                                removedPackage = pkg;
                                 modified = true;
-                                Log(Localization.Get("Log.PackageRemoved", pkg));
                                 break;
                             }
                         }
@@ -3371,33 +3430,38 @@ namespace OneClick.VRConverter.Editor
                         {
                             newLines.Add(line);
                         }
-                        // 如果移除了这一行，检查下一行是否是最后一个条目（没有逗号）
-                        // 如果是，需要给前一行添加逗号
-                        else if (newLines.Count > 0)
+                        else
                         {
-                            // 检查下一行是否是最后一个条目
-                            bool isLastEntry = true;
-                            for (int j = i + 1; j < lines.Count; j++)
-                            {
-                                var nextLine = lines[j].Trim();
-                                if (nextLine == "}" || nextLine == "},")
-                                {
-                                    break;
-                                }
-                                if (!string.IsNullOrEmpty(nextLine) && !nextLine.StartsWith("//"))
-                                {
-                                    isLastEntry = false;
-                                    break;
-                                }
-                            }
+                            Log(Localization.Get("Log.PackageRemoved", removedPackage));
                             
-                            // 如果前一行有逗号，需要移除（因为现在它是最后一行了）
-                            if (isLastEntry && newLines.Count > 0)
+                            // 如果移除了这一行，检查下一行是否是最后一个条目（没有逗号）
+                            // 如果是，需要给前一行添加逗号
+                            if (newLines.Count > 0)
                             {
-                                var lastLine = newLines[newLines.Count - 1];
-                                if (lastLine.TrimEnd().EndsWith(","))
+                                // 检查下一行是否是最后一个条目
+                                bool isLastEntry = true;
+                                for (int j = i + 1; j < lines.Count; j++)
                                 {
-                                    newLines[newLines.Count - 1] = lastLine.TrimEnd().TrimEnd(',');
+                                    var nextLine = lines[j].Trim();
+                                    if (nextLine == "}" || nextLine == "},")
+                                    {
+                                        break;
+                                    }
+                                    if (!string.IsNullOrEmpty(nextLine) && !nextLine.StartsWith("//"))
+                                    {
+                                        isLastEntry = false;
+                                        break;
+                                    }
+                                }
+                                
+                                // 如果前一行有逗号，需要移除（因为现在它是最后一行了）
+                                if (isLastEntry && newLines.Count > 0)
+                                {
+                                    var lastLine = newLines[newLines.Count - 1];
+                                    if (lastLine.TrimEnd().EndsWith(","))
+                                    {
+                                        newLines[newLines.Count - 1] = lastLine.TrimEnd().TrimEnd(',');
+                                    }
                                 }
                             }
                         }
@@ -3418,13 +3482,280 @@ namespace OneClick.VRConverter.Editor
                 if (modified)
                 {
                     File.WriteAllText(manifestPath, text);
+                    
+                    // 清理 Scripting Define Symbols
+                    progress.UpdateProgress(0.8f, "清理 Scripting Define Symbols...");
+                    CleanupScriptingDefineSymbols();
+                    
+                    // 清理 asmdef 文件中的 XR 引用
+                    progress.UpdateProgress(0.85f, "清理 asmdef 文件...");
+                    CleanupAsmdefReferences();
+                    
+                    // 清理 PackageCache 中的 XR 包
+                    progress.UpdateProgress(0.88f, "清理 PackageCache 中的 XR 包...");
+                    CleanupPackageCache();
+                    
+                    // 强制 Unity 重新解析包
+                    progress.UpdateProgress(0.92f, "刷新 Unity 包系统...");
                     AssetDatabase.Refresh();
-                    Log("已移除 XR 包依赖，请等待 Unity 刷新");
+                    
+                    // 尝试触发包管理器刷新
+                    try
+                    {
+                        var packageManagerType = FindType("UnityEditor.PackageManager.Client, UnityEditor.CoreModule");
+                        if (packageManagerType != null)
+                        {
+                            var resolveMethod = packageManagerType.GetMethod("Resolve", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                            if (resolveMethod != null)
+                            {
+                                resolveMethod.Invoke(null, null);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning($"触发包管理器刷新时出错: {ex.Message}");
+                    }
+                    
+                    Log("已移除 XR 包依赖，Unity 正在重新解析包...");
+                    
+                    // 显示重要提示
+                    var message = "XR 包移除完成！\n\n" +
+                        "如果仍有编译错误，请：\n" +
+                        "1. 关闭 Unity 编辑器\n" +
+                        "2. 手动删除 Library/PackageCache 中以 'com.unity.xr.' 开头的所有目录\n" +
+                        "3. 重新打开 Unity 编辑器\n\n" +
+                        "这样可以确保 Unity 完全清理 XR 包的缓存。";
+                    
+                    Log(message);
+                    
+                    // 显示对话框提示
+                    EditorUtility.DisplayDialog(
+                        "转换完成",
+                        message,
+                        "确定");
                 }
                 else
                 {
                     Log(Localization.Get("Log.NoPackagesToRemove"));
                 }
+            }
+        }
+
+        /// <summary>
+        /// 清理 Scripting Define Symbols 中的 XR 相关定义
+        /// </summary>
+        private void CleanupScriptingDefineSymbols()
+        {
+            try
+            {
+                var xrDefines = new[]
+                {
+                    "UNITY_XR_MANAGEMENT",
+                    "UNITY_XR_INTERACTION_TOOLKIT",
+                    "UNITY_XR_OPENXR",
+                    "UNITY_XR_CORE_UTILS",
+                    "UNITY_XR_HANDS"
+                };
+
+                foreach (var targetGroup in TargetGroups)
+                {
+                    var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(targetGroup);
+                    if (string.IsNullOrEmpty(defines))
+                    {
+                        continue;
+                    }
+
+                    var defineList = defines.Split(';').ToList();
+                    bool modified = false;
+
+                    foreach (var xrDefine in xrDefines)
+                    {
+                        if (defineList.Contains(xrDefine))
+                        {
+                            defineList.Remove(xrDefine);
+                            modified = true;
+                            Log($"已从 {targetGroup} 的 Scripting Define Symbols 中移除: {xrDefine}");
+                        }
+                    }
+
+                    if (modified)
+                    {
+                        var newDefines = string.Join(";", defineList);
+                        PlayerSettings.SetScriptingDefineSymbolsForGroup(targetGroup, newDefines);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                var errorMsg = ErrorHandler.HandleException(ex, "清理 Scripting Define Symbols", showDialog: false);
+                Log($"清理 Scripting Define Symbols 时出错: {errorMsg}");
+            }
+        }
+
+        /// <summary>
+        /// 清理 asmdef 文件中的 XR 包引用
+        /// </summary>
+        private void CleanupAsmdefReferences()
+        {
+            try
+            {
+                var asmdefGuids = AssetDatabase.FindAssets("t:AssemblyDefinitionAsset");
+                var processedCount = 0;
+
+                foreach (var guid in asmdefGuids)
+                {
+                    var asmdefPath = AssetDatabase.GUIDToAssetPath(guid);
+                    
+                    // 跳过工具自己的 asmdef 和生成的资源
+                    if (asmdefPath.Contains("VRConverter") || 
+                        asmdefPath.Contains("VRConverterGenerated") ||
+                        (asmdefPath.Contains("Editor") && asmdefPath.Contains("FocusOptimizer")))
+                    {
+                        continue;
+                    }
+
+                    if (!File.Exists(asmdefPath))
+                    {
+                        continue;
+                    }
+
+                    var asmdefContent = File.ReadAllText(asmdefPath);
+                    bool modified = false;
+
+                    // 检测是否包含 XR 包引用
+                    bool hasXrReference = false;
+                    foreach (var xrPackage in AllXrPackages)
+                    {
+                        if (asmdefContent.Contains(xrPackage))
+                        {
+                            hasXrReference = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasXrReference)
+                    {
+                        continue;
+                    }
+
+                    // 使用逐行处理的方法，更可靠
+                    var lines = asmdefContent.Split(new[] { '\r', '\n' }, StringSplitOptions.None).ToList();
+                    var newLines = new List<string>();
+                    bool inReferences = false;
+
+                    for (int i = 0; i < lines.Count; i++)
+                    {
+                        var line = lines[i];
+                        var trimmedLine = line.Trim();
+
+                        // 检测 references 数组开始
+                        if (trimmedLine.Contains("\"references\"") && trimmedLine.Contains("["))
+                        {
+                            inReferences = true;
+                            newLines.Add(line);
+                            continue;
+                        }
+
+                        // 检测 references 数组结束
+                        if (inReferences && trimmedLine == "]")
+                        {
+                            inReferences = false;
+                            newLines.Add(line);
+                            continue;
+                        }
+
+                        // 在 references 数组内处理
+                        if (inReferences)
+                        {
+                            bool shouldRemove = false;
+                            string removedPackage = null;
+
+                            foreach (var xrPackage in AllXrPackages)
+                            {
+                                if (trimmedLine.Contains($"\"{xrPackage}\""))
+                                {
+                                    shouldRemove = true;
+                                    removedPackage = xrPackage;
+                                    modified = true;
+                                    break;
+                                }
+                            }
+
+                            if (!shouldRemove)
+                            {
+                                newLines.Add(line);
+                            }
+                            else
+                            {
+                                // 如果移除了这一行，检查下一行是否是最后一个条目
+                                if (newLines.Count > 0)
+                                {
+                                    bool isLastEntry = true;
+                                    for (int j = i + 1; j < lines.Count; j++)
+                                    {
+                                        var nextLine = lines[j].Trim();
+                                        if (nextLine == "]")
+                                        {
+                                            break;
+                                        }
+                                        if (!string.IsNullOrEmpty(nextLine) && !nextLine.StartsWith("//"))
+                                        {
+                                            isLastEntry = false;
+                                            break;
+                                        }
+                                    }
+
+                                    // 如果前一行有逗号，需要移除
+                                    if (isLastEntry && newLines.Count > 0)
+                                    {
+                                        var lastLine = newLines[newLines.Count - 1];
+                                        if (lastLine.TrimEnd().EndsWith(","))
+                                        {
+                                            newLines[newLines.Count - 1] = lastLine.TrimEnd().TrimEnd(',');
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            newLines.Add(line);
+                        }
+                    }
+
+                    if (modified)
+                    {
+                        var newContent = string.Join("\n", newLines);
+
+                        // 清理多余的逗号
+                        newContent = System.Text.RegularExpressions.Regex.Replace(newContent, @",\s*,", ",");
+                        newContent = System.Text.RegularExpressions.Regex.Replace(newContent, @",(\s*\n\s*])", "$1");
+                        newContent = System.Text.RegularExpressions.Regex.Replace(newContent, @"\[\s*,", "[");
+
+                        // 创建备份
+                        var backupPath = asmdefPath + ".vrbackup";
+                        if (!File.Exists(backupPath))
+                        {
+                            File.Copy(asmdefPath, backupPath);
+                        }
+
+                        File.WriteAllText(asmdefPath, newContent);
+                        AssetDatabase.ImportAsset(asmdefPath);
+                        processedCount++;
+                        Log(Localization.Get("Log.AsmdefCleaned", Path.GetFileName(asmdefPath)));
+                    }
+                }
+
+                if (processedCount > 0)
+                {
+                    Log(Localization.Get("Log.AsmdefFilesProcessed", processedCount));
+                }
+            }
+            catch (Exception ex)
+            {
+                var errorMsg = ErrorHandler.HandleException(ex, "清理 asmdef 文件", showDialog: false);
+                Log($"清理 asmdef 文件时出错: {errorMsg}");
             }
         }
 
@@ -3898,6 +4229,90 @@ namespace OneClick.VRConverter.Editor
             newLines.Add("#endif // UNITY_XR_INTERACTION_TOOLKIT || UNITY_XR_MANAGEMENT");
 
             return string.Join("\n", newLines);
+        }
+
+        /// <summary>
+        /// 清理 PackageCache 中的 XR 包目录
+        /// </summary>
+        private void CleanupPackageCache()
+        {
+            try
+            {
+                var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+                var packageCachePath = Path.Combine(projectRoot, "Library", "PackageCache");
+                
+                if (!Directory.Exists(packageCachePath))
+                {
+                    Log("PackageCache 目录不存在，跳过清理");
+                    return;
+                }
+
+                var removedCount = 0;
+                var directories = Directory.GetDirectories(packageCachePath);
+                
+                foreach (var dir in directories)
+                {
+                    var dirName = Path.GetFileName(dir);
+                    
+                    // 检查是否是 XR 相关包
+                    bool isXrPackage = false;
+                    foreach (var xrPackage in AllXrPackages)
+                    {
+                        // PackageCache 中的目录名格式通常是：com.unity.xr.management@版本号
+                        if (dirName.StartsWith(xrPackage + "@", StringComparison.OrdinalIgnoreCase))
+                        {
+                            isXrPackage = true;
+                            break;
+                        }
+                    }
+                    
+                    // 也检查是否以 com.unity.xr. 开头（捕获所有 XR 包）
+                    if (!isXrPackage && dirName.StartsWith("com.unity.xr.", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isXrPackage = true;
+                    }
+
+                    if (isXrPackage)
+                    {
+                        try
+                        {
+                            // 尝试删除目录
+                            Directory.Delete(dir, true);
+                            
+                            // 也删除对应的 .meta 文件（如果有）
+                            var metaFile = dir + ".meta";
+                            if (File.Exists(metaFile))
+                            {
+                                File.Delete(metaFile);
+                            }
+                            
+                            removedCount++;
+                            Log(Localization.Get("Log.PackageCacheRemoved", dirName));
+                        }
+                        catch (Exception ex)
+                        {
+                            // 如果删除失败（可能被 Unity 锁定），记录警告
+                            Logger.LogWarning($"无法删除 PackageCache 中的 {dirName}: {ex.Message}");
+                            Log($"警告：无法删除 PackageCache 中的 {dirName}，可能需要重启 Unity 后手动删除");
+                        }
+                    }
+                }
+
+                if (removedCount > 0)
+                {
+                    Log(Localization.Get("Log.PackageCacheCleaned", removedCount));
+                }
+                else
+                {
+                    Log("PackageCache 中未找到 XR 相关包，或已被 Unity 锁定");
+                }
+            }
+            catch (Exception ex)
+            {
+                var errorMsg = ErrorHandler.HandleException(ex, "清理 PackageCache", showDialog: false);
+                Log($"清理 PackageCache 时出错: {errorMsg}");
+                Log("如果仍有编译错误，请手动关闭 Unity，然后删除 Library/PackageCache 中以 'com.unity.xr.' 开头的目录");
+            }
         }
 
         #endregion

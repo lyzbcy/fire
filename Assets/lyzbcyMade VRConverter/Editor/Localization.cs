@@ -260,6 +260,10 @@ namespace OneClick.VRConverter.Editor
             AddTranslation("Log.ScriptWrappedWithConditional", "已为脚本添加条件编译指令: {0}", "Added conditional compilation directives to script: {0}", "スクリプトに条件コンパイルディレクティブを追加しました: {0}");
             AddTranslation("Log.XrDependentScriptsProcessed", "已处理 {0} 个依赖 XR 的脚本文件", "Processed {0} XR-dependent script file(s)", "{0}個のXR依存スクリプトファイルを処理しました");
             AddTranslation("Log.XrDependentScriptsAlreadyWrapped", "已跳过 {0} 个已包含条件编译指令的脚本", "Skipped {0} script(s) that already have conditional compilation directives", "条件コンパイルディレクティブが既に含まれている{0}個のスクリプトをスキップしました");
+            AddTranslation("Log.AsmdefCleaned", "已清理 asmdef 文件中的 XR 引用: {0}", "Cleaned XR references from asmdef file: {0}", "asmdefファイルからXR参照をクリーンアップしました: {0}");
+            AddTranslation("Log.AsmdefFilesProcessed", "已处理 {0} 个 asmdef 文件", "Processed {0} asmdef file(s)", "{0}個のasmdefファイルを処理しました");
+            AddTranslation("Log.PackageCacheRemoved", "已从 PackageCache 移除: {0}", "Removed from PackageCache: {0}", "PackageCacheから削除しました: {0}");
+            AddTranslation("Log.PackageCacheCleaned", "已清理 PackageCache 中的 {0} 个 XR 包目录", "Cleaned {0} XR package directory(ies) from PackageCache", "PackageCacheから{0}個のXRパッケージディレクトリをクリーンアップしました");
             
             // 项目类型
             AddTranslation("ProjectType.VR", "当前项目类型：VR 项目", "Current Project Type: VR Project", "現在のプロジェクトタイプ：VRプロジェクト");
