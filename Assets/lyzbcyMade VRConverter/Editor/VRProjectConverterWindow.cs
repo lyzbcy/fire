@@ -71,6 +71,13 @@ namespace OneClick.VRConverter.Editor
             Professional = 1
         }
 
+        private enum ProjectType
+        {
+            Unknown = 0,
+            Standard3D = 1,
+            VR = 2
+        }
+
         private enum RigStrategy
         {
             Auto = 0,
@@ -88,6 +95,7 @@ namespace OneClick.VRConverter.Editor
             public BuildTargetGroup[] TargetGroups;
             public RigStrategy RigStrategy;
             public bool DisableLegacyCamera;
+            public bool IsReverseConversion; // 是否为反向转换（VR -> 3D）
 
             public bool HasAnyOperation =>
                 EnsurePackages || ConfigureProjectSettings || ConvertScene || ConfigureDeviceSimulator;
@@ -499,6 +507,18 @@ namespace OneClick.VRConverter.Editor
 
                 EditorGUILayout.Space(12);
 
+                // 显示项目类型
+                var projectType = DetectProjectType();
+                var projectTypeText = projectType switch
+                {
+                    ProjectType.VR => Localization.Get("ProjectType.VR", "当前项目类型：VR 项目"),
+                    ProjectType.Standard3D => Localization.Get("ProjectType.Standard3D", "当前项目类型：3D 项目"),
+                    _ => Localization.Get("ProjectType.Unknown", "当前项目类型：未知")
+                };
+                EditorGUILayout.LabelField(projectTypeText, EditorStyles.boldLabel);
+
+                EditorGUILayout.Space(8);
+
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     var compiling = EditorApplication.isCompiling;
@@ -795,24 +815,67 @@ namespace OneClick.VRConverter.Editor
             EditorGUILayout.LabelField(Localization.Get("QuickStart.Title"), _stepTitleStyle);
             EditorGUILayout.Space(10);
 
-            EditorGUILayout.LabelField(
-                Localization.Get("QuickStart.Description"),
-                EditorStyles.wordWrappedMiniLabel);
+            var projectType = DetectProjectType();
+            bool isVRProject = projectType == ProjectType.VR;
 
-            EditorGUILayout.Space(12);
-
-            var content = new GUIContent(
-                Localization.Get("Guided.RunAll.Title"),
-                Localization.Get("QuickStart.RunAll.Tooltip"));
-
-            if (GUILayout.Button(content, _primaryButtonStyle))
+            if (isVRProject)
             {
-                RunAllSteps();
+                EditorGUILayout.LabelField(
+                    Localization.Get("Reverse.Description"),
+                    EditorStyles.wordWrappedMiniLabel);
+
+                EditorGUILayout.Space(12);
+
+                var content = new GUIContent(
+                    Localization.Get("Reverse.RunAll.Title"),
+                    Localization.Get("Reverse.RunAll.Tooltip"));
+
+                if (GUILayout.Button(content, _primaryButtonStyle))
+                {
+                    RunReverseConversion();
+                }
+            }
+            else
+            {
+                EditorGUILayout.LabelField(
+                    Localization.Get("QuickStart.Description"),
+                    EditorStyles.wordWrappedMiniLabel);
+
+                EditorGUILayout.Space(12);
+
+                var content = new GUIContent(
+                    Localization.Get("Guided.RunAll.Title"),
+                    Localization.Get("QuickStart.RunAll.Tooltip"));
+
+                if (GUILayout.Button(content, _primaryButtonStyle))
+                {
+                    RunAllSteps();
+                }
             }
 
             EditorGUILayout.Space(8);
             EditorGUILayout.LabelField(Localization.Get("QuickStart.Hint"), EditorStyles.wordWrappedMiniLabel);
             EditorGUILayout.EndVertical();
+        }
+
+        /// <summary>
+        /// 执行反向转换（VR -> 3D）
+        /// </summary>
+        private void RunReverseConversion()
+        {
+            var plan = new ConversionPlan
+            {
+                EnsurePackages = true,
+                ConfigureProjectSettings = true,
+                ConvertScene = true,
+                ConfigureDeviceSimulator = false,
+                TargetGroups = TargetGroups,
+                RigStrategy = RigStrategy.Auto,
+                DisableLegacyCamera = false,
+                IsReverseConversion = true
+            };
+
+            ExecuteConversionPlan(plan, "“一键转换为 3D 项目”");
         }
 
         /// <summary>
@@ -1117,34 +1180,66 @@ namespace OneClick.VRConverter.Editor
 
             _lastConversionSucceeded = false;
 
-            if (plan.EnsurePackages)
+            // 反向转换（VR -> 3D）
+            if (plan.IsReverseConversion)
             {
-                EnsureXrPackages();
-            }
-
-            if ((plan.ConfigureProjectSettings || plan.ConvertScene) && EditorApplication.isCompiling)
-            {
-                Log(Localization.Get("Log.Compiling"));
-                return;
-            }
-
-            if (plan.ConfigureProjectSettings)
-            {
-                ConfigureXrProjectSettings(plan.TargetGroups);
-            }
-
-            if (plan.ConvertScene)
-            {
-                bool converted = ConvertCurrentSceneToVr(plan.RigStrategy, plan.DisableLegacyCamera);
-                if (converted)
+                if (plan.EnsurePackages)
                 {
-                    HandleConversionCompleted();
+                    RemoveXrPackages();
+                }
+
+                if ((plan.ConfigureProjectSettings || plan.ConvertScene) && EditorApplication.isCompiling)
+                {
+                    Log(Localization.Get("Log.Compiling"));
+                    return;
+                }
+
+                if (plan.ConfigureProjectSettings)
+                {
+                    Restore3DProjectSettings(plan.TargetGroups);
+                }
+
+                if (plan.ConvertScene)
+                {
+                    bool converted = ConvertCurrentSceneTo3D();
+                    if (converted)
+                    {
+                        HandleConversionCompleted();
+                    }
                 }
             }
-
-            if (plan.ConfigureDeviceSimulator)
+            else
             {
-                EnsureDeviceSimulatorConfigured();
+                // 正向转换（3D -> VR）
+                if (plan.EnsurePackages)
+                {
+                    EnsureXrPackages();
+                }
+
+                if ((plan.ConfigureProjectSettings || plan.ConvertScene) && EditorApplication.isCompiling)
+                {
+                    Log(Localization.Get("Log.Compiling"));
+                    return;
+                }
+
+                if (plan.ConfigureProjectSettings)
+                {
+                    ConfigureXrProjectSettings(plan.TargetGroups);
+                }
+
+                if (plan.ConvertScene)
+                {
+                    bool converted = ConvertCurrentSceneToVr(plan.RigStrategy, plan.DisableLegacyCamera);
+                    if (converted)
+                    {
+                        HandleConversionCompleted();
+                    }
+                }
+
+                if (plan.ConfigureDeviceSimulator)
+                {
+                    EnsureDeviceSimulatorConfigured();
+                }
             }
         }
 
@@ -3101,6 +3196,375 @@ namespace OneClick.VRConverter.Editor
             }
 
             return hash.Length <= 7 ? hash : hash.Substring(0, 7);
+        }
+
+        #endregion
+
+        #region Project Type Detection & Reverse Conversion
+
+        /// <summary>
+        /// 检测当前项目类型（3D 或 VR）
+        /// </summary>
+        private ProjectType DetectProjectType()
+        {
+            // 检查是否安装了 XR 相关包
+            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var manifestPath = Path.Combine(projectRoot, "Packages", "manifest.json");
+            
+            if (!File.Exists(manifestPath))
+            {
+                return ProjectType.Unknown;
+            }
+
+            try
+            {
+                var text = File.ReadAllText(manifestPath);
+                bool hasXrManagement = text.Contains("com.unity.xr.management");
+                bool hasOpenXr = text.Contains("com.unity.xr.openxr");
+                bool hasXrInteraction = text.Contains("com.unity.xr.interaction.toolkit");
+                
+                // 如果安装了主要的 XR 包，认为是 VR 项目
+                if (hasXrManagement && (hasOpenXr || hasXrInteraction))
+                {
+                    // 进一步检查场景中是否有 XR Origin
+                    var xrOriginType = FindType(XrOriginTypeName);
+                    if (xrOriginType != null)
+                    {
+                        var existingOrigin = FindComponentInScene(xrOriginType);
+                        if (existingOrigin != null)
+                        {
+                            return ProjectType.VR;
+                        }
+                    }
+                    
+                    // 检查是否有 VRRig
+                    var vrRig = GameObject.Find("VRRig");
+                    if (vrRig != null)
+                    {
+                        return ProjectType.VR;
+                    }
+                    
+                    // 即使场景中没有，如果包已安装，也认为是 VR 项目
+                    return ProjectType.VR;
+                }
+                
+                return ProjectType.Standard3D;
+            }
+            catch
+            {
+                return ProjectType.Unknown;
+            }
+        }
+
+        /// <summary>
+        /// 移除 XR 相关包
+        /// </summary>
+        private void RemoveXrPackages()
+        {
+            using (var progress = new ProgressReporter("移除 XR 包", "正在检查包依赖..."))
+            {
+                var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+                var manifestPath = Path.Combine(projectRoot, "Packages", "manifest.json");
+
+                if (!File.Exists(manifestPath))
+                {
+                    Log(Localization.Get("Log.ManifestNotFound"));
+                    return;
+                }
+
+                progress.UpdateProgress(0.1f, "创建备份...");
+                try
+                {
+                    OperationBackup.CreateQuickBackup(manifestPath);
+                    Log(Localization.Get("Log.ManifestBackupCreated"));
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleException(ex, "创建 manifest.json 备份", showDialog: false);
+                }
+
+                string text;
+                try
+                {
+                    text = File.ReadAllText(manifestPath);
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleException(ex, "读取 manifest.json", showDialog: true);
+                    return;
+                }
+
+                bool modified = false;
+                progress.UpdateProgress(0.3f, "移除 XR 包依赖...");
+                
+                foreach (var pkg in RequiredPackages)
+                {
+                    if (TryGetManifestPackageVersion(text, pkg, out var version))
+                    {
+                        // 移除包依赖
+                        var pattern = $"\"{pkg}\"\\s*:\\s*\"[^\"]+\"";
+                        var regex = new System.Text.RegularExpressions.Regex(pattern);
+                        text = regex.Replace(text, "");
+                        modified = true;
+                        Log(Localization.Get("Log.PackageRemoved", pkg));
+                    }
+                }
+
+                // 清理多余的逗号
+                text = System.Text.RegularExpressions.Regex.Replace(text, @",\s*,", ",");
+                text = System.Text.RegularExpressions.Regex.Replace(text, @",\s*}", "}");
+                text = System.Text.RegularExpressions.Regex.Replace(text, @"{\s*,", "{");
+
+                if (modified)
+                {
+                    File.WriteAllText(manifestPath, text);
+                    AssetDatabase.Refresh();
+                    Log("已移除 XR 包依赖，请等待 Unity 刷新");
+                }
+                else
+                {
+                    Log(Localization.Get("Log.NoPackagesToRemove"));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 恢复项目设置为 3D 模式
+        /// </summary>
+        private void Restore3DProjectSettings(IEnumerable<BuildTargetGroup> targetGroups = null)
+        {
+            using (var progress = new ProgressReporter("恢复项目设置", "正在初始化..."))
+            {
+                var desiredGroups = (targetGroups ?? TargetGroups)?.Distinct().ToArray() ?? Array.Empty<BuildTargetGroup>();
+                if (desiredGroups.Length == 0)
+                {
+                    desiredGroups = TargetGroups;
+                }
+
+                progress.UpdateProgress(0.1f, "检查 XR Management 程序集...");
+                var perBuildType = FindType("UnityEditor.XR.Management.XRGeneralSettingsPerBuildTarget, Unity.XR.Management.Editor");
+                var generalType = FindType("UnityEngine.XR.Management.XRGeneralSettings, Unity.XR.Management");
+                var managerType = FindType("UnityEngine.XR.Management.XRManagerSettings, Unity.XR.Management");
+
+                if (perBuildType == null || generalType == null || managerType == null)
+                {
+                    Log("未检测到 XR Management，可能已移除，跳过项目设置恢复");
+                    return;
+                }
+
+                progress.UpdateProgress(0.3f, "禁用 XR 设置...");
+                var perBuildAsset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(GeneratedGeneralSettingsAsset);
+                if (perBuildAsset == null)
+                {
+                    Log("未找到 XR General Settings 资产，跳过恢复");
+                    return;
+                }
+
+                var getMethod = perBuildType.GetMethod("SettingsForBuildTarget", new[] { typeof(BuildTargetGroup) });
+                if (getMethod == null)
+                {
+                    Log("无法获取 XR 设置，跳过恢复");
+                    return;
+                }
+
+                progress.UpdateProgress(0.5f, "禁用目标平台的 XR...");
+                int groupIndex = 0;
+                foreach (var targetGroup in desiredGroups)
+                {
+                    groupIndex++;
+                    progress.UpdateProgress(0.5f + (groupIndex / (float)desiredGroups.Length) * 0.4f, $"禁用 {targetGroup} 的 XR...");
+                    
+                    var generalSettings = getMethod.Invoke(perBuildAsset, new object[] { targetGroup }) as ScriptableObject;
+                    if (generalSettings == null)
+                    {
+                        continue;
+                    }
+
+                    var so = new SerializedObject(generalSettings);
+                    var initProp = so.FindProperty("m_InitManagerOnStart");
+                    if (initProp != null)
+                    {
+                        initProp.boolValue = false;
+                        so.ApplyModifiedPropertiesWithoutUndo();
+                    }
+
+                    var managerProp = so.FindProperty("m_LoaderManagerInstance");
+                    if (managerProp != null)
+                    {
+                        var managerSettings = managerProp.objectReferenceValue as ScriptableObject;
+                        if (managerSettings != null)
+                        {
+                            var managerSO = new SerializedObject(managerSettings);
+                            var loadersProp = managerSO.FindProperty("m_Loaders");
+                            if (loadersProp != null)
+                            {
+                                loadersProp.arraySize = 0;
+                                managerSO.ApplyModifiedPropertiesWithoutUndo();
+                            }
+                        }
+                    }
+
+                    Log(Localization.Get("Log.XrSettingsDisabled", targetGroup));
+                }
+
+                progress.UpdateProgress(0.95f, "保存资源...");
+                AssetDatabase.SaveAssets();
+            }
+        }
+
+        /// <summary>
+        /// 将 VR 场景转换回 3D 场景
+        /// </summary>
+        private bool ConvertCurrentSceneTo3D()
+        {
+            using (var progress = new ProgressReporter("转换场景为 3D", "正在初始化..."))
+            {
+                var scene = EditorSceneManager.GetActiveScene();
+                if (!scene.IsValid())
+                {
+                    Log(Localization.Get("Log.NoSceneOpen"));
+                    return false;
+                }
+
+                progress.UpdateProgress(0.2f, "查找 XR Origin...");
+                
+                // 查找并移除 XR Origin
+                var xrOriginType = FindType(XrOriginTypeName);
+                Component existingOrigin = null;
+                if (xrOriginType != null)
+                {
+                    existingOrigin = FindComponentInScene(xrOriginType);
+                }
+
+                // 查找 VRRig
+                var vrRig = GameObject.Find("VRRig");
+                
+                GameObject mainCameraToRestore = null;
+                Transform cameraParent = null;
+                Vector3 cameraLocalPos = Vector3.zero;
+                Quaternion cameraLocalRot = Quaternion.identity;
+
+                if (existingOrigin != null)
+                {
+                    progress.UpdateProgress(0.4f, "处理 XR Origin...");
+                    var originGo = existingOrigin.gameObject;
+                    
+                    // 尝试从 XR Origin 中提取相机信息
+                    var cameraOffset = originGo.transform.Find("Camera Offset");
+                    if (cameraOffset != null)
+                    {
+                        var cameraGo = cameraOffset.Find("Main Camera");
+                        if (cameraGo != null)
+                        {
+                            mainCameraToRestore = cameraGo.gameObject;
+                            cameraParent = originGo.transform.parent;
+                            cameraLocalPos = originGo.transform.localPosition;
+                            cameraLocalRot = originGo.transform.localRotation;
+                        }
+                    }
+                    
+                    // 移除 XR Origin
+                    Undo.DestroyObjectImmediate(originGo);
+                    Log(Localization.Get("Log.XrOriginRemoved"));
+                }
+                else if (vrRig != null)
+                {
+                    progress.UpdateProgress(0.4f, "处理 VRRig...");
+                    var cameraOffset = vrRig.transform.Find("CameraOffset");
+                    if (cameraOffset != null)
+                    {
+                        var cameraGo = cameraOffset.Find("Main Camera");
+                        if (cameraGo != null)
+                        {
+                            mainCameraToRestore = cameraGo.gameObject;
+                            cameraParent = vrRig.transform.parent;
+                            cameraLocalPos = vrRig.transform.localPosition;
+                            cameraLocalRot = vrRig.transform.localRotation;
+                        }
+                    }
+                    
+                    // 移除 VRRig
+                    Undo.DestroyObjectImmediate(vrRig);
+                    Log(Localization.Get("Log.VrRigRemoved"));
+                }
+
+                // 恢复或创建 Main Camera
+                progress.UpdateProgress(0.6f, "恢复 Main Camera...");
+                Camera mainCamera = null;
+                
+                if (mainCameraToRestore != null)
+                {
+                    // 从 XR Origin/VRRig 中提取的相机
+                    mainCameraToRestore.transform.SetParent(cameraParent, false);
+                    mainCameraToRestore.transform.localPosition = cameraLocalPos;
+                    mainCameraToRestore.transform.localRotation = cameraLocalRot;
+                    mainCamera = mainCameraToRestore.GetComponent<Camera>();
+                    if (mainCamera == null)
+                    {
+                        mainCamera = mainCameraToRestore.AddComponent<Camera>();
+                    }
+                    mainCameraToRestore.tag = "MainCamera";
+                    mainCameraToRestore.SetActive(true);
+                    Log(Localization.Get("Log.MainCameraRestored"));
+                }
+                else
+                {
+                    // 查找场景中是否有被禁用的 Main Camera
+                    var allCameras = UnityEngine.Object.FindObjectsOfType<Camera>(true);
+                    foreach (var cam in allCameras)
+                    {
+                        if (cam.CompareTag("MainCamera") && !cam.gameObject.activeSelf)
+                        {
+                        cam.gameObject.SetActive(true);
+                        mainCamera = cam;
+                        Log(Localization.Get("Log.MainCameraEnabled"));
+                        break;
+                        }
+                    }
+                    
+                    // 如果没有找到，创建一个新的 Main Camera
+                    if (mainCamera == null)
+                    {
+                        var cameraGo = new GameObject("Main Camera");
+                        Undo.RegisterCreatedObjectUndo(cameraGo, "Create Main Camera");
+                        mainCamera = cameraGo.AddComponent<Camera>();
+                        cameraGo.AddComponent<AudioListener>();
+                        cameraGo.tag = "MainCamera";
+                        cameraGo.transform.position = new Vector3(0, 1.6f, -10);
+                        Log(Localization.Get("Log.MainCameraCreated"));
+                    }
+                }
+
+                // 移除 XR Interaction Manager 和 Input Action Manager
+                progress.UpdateProgress(0.8f, "清理 XR 管理器...");
+                var interactionManagerType = FindType(XrInteractionManagerTypeName);
+                if (interactionManagerType != null)
+                {
+                    var interactionManager = FindComponentInScene(interactionManagerType);
+                    if (interactionManager != null)
+                    {
+                        Undo.DestroyObjectImmediate(interactionManager.gameObject);
+                        Log(Localization.Get("Log.InteractionManagerRemoved"));
+                    }
+                }
+
+                var inputActionManagerType = FindType(InputActionManagerTypeName);
+                if (inputActionManagerType != null)
+                {
+                    var inputActionManager = FindComponentInScene(inputActionManagerType);
+                    if (inputActionManager != null)
+                    {
+                        Undo.DestroyObjectImmediate(inputActionManager.gameObject);
+                        Log(Localization.Get("Log.InputActionManagerRemoved"));
+                    }
+                }
+
+                progress.UpdateProgress(0.9f, "保存场景...");
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
+                Log(Localization.Get("Log.SceneConvertedTo3D"));
+                return true;
+            }
         }
 
         #endregion

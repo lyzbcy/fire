@@ -223,6 +223,43 @@ namespace OneClick.VRConverter.Editor
             AddTranslation("QuickStart.Hint", "如果你不熟悉 XR 配置，推荐优先使用上面的\"一键执行\"按钮。", 
                 "If you are not familiar with XR configuration, it is recommended to use the \"Run All\" button above first.",
                 "XR設定に慣れていない場合は、上記の「すべて実行」ボタンを優先的に使用することをお勧めします。");
+            
+            // 反向转换相关
+            AddTranslation("Reverse.Title", "转换为 3D 项目", "Convert to 3D Project", "3Dプロジェクトに変換");
+            AddTranslation("Reverse.Description", 
+                "将当前 VR 项目转换回标准 3D 项目，移除 XR 相关配置和场景中的 VR 组件。",
+                "Convert current VR project back to standard 3D project, removing XR configurations and VR components in scenes.",
+                "現在のVRプロジェクトを標準の3Dプロジェクトに戻し、XR設定とシーン内のVRコンポーネントを削除します。");
+            AddTranslation("Reverse.RunAll.Title", "一键转换为 3D 项目", "Convert to 3D Project", "3Dプロジェクトに変換");
+            AddTranslation("Reverse.RunAll.Tooltip",
+                "依次执行：\n" +
+                "1. 移除 XR Management / OpenXR / XR Interaction Toolkit 包；\n" +
+                "2. 禁用 XR Plug-in Management 设置；\n" +
+                "3. 将当前场景转换回 3D 场景并恢复 Main Camera。",
+                "Execute in order:\n" +
+                "1. Remove XR Management / OpenXR / XR Interaction Toolkit packages;\n" +
+                "2. Disable XR Plug-in Management settings;\n" +
+                "3. Convert current scene back to 3D scene and restore Main Camera.",
+                "順番に実行：\n" +
+                "1. XR Management / OpenXR / XR Interaction Toolkitパッケージを削除；\n" +
+                "2. XR Plug-in Management設定を無効化；\n" +
+                "3. 現在のシーンを3Dシーンに戻し、Main Cameraを復元。");
+            AddTranslation("Log.PackageRemoved", "已移除包依赖: {0}", "Removed package dependency: {0}", "パッケージ依存関係を削除: {0}");
+            AddTranslation("Log.NoPackagesToRemove", "未找到需要移除的 XR 包", "No XR packages found to remove", "削除するXRパッケージが見つかりません");
+            AddTranslation("Log.XrSettingsDisabled", "已禁用 {0} 的 XR 设置", "Disabled XR settings for {0}", "{0}のXR設定を無効化しました");
+            AddTranslation("Log.SceneConvertedTo3D", "场景已转换为 3D 模式", "Scene converted to 3D mode", "シーンを3Dモードに変換しました");
+            AddTranslation("Log.MainCameraRestored", "已恢复 Main Camera", "Main Camera restored", "Main Cameraを復元しました");
+            AddTranslation("Log.MainCameraCreated", "已创建新的 Main Camera", "Created new Main Camera", "新しいMain Cameraを作成しました");
+            AddTranslation("Log.MainCameraEnabled", "已启用被禁用的 Main Camera", "Enabled disabled Main Camera", "無効化されていたMain Cameraを有効化しました");
+            AddTranslation("Log.XrOriginRemoved", "已移除 XR Origin", "XR Origin removed", "XR Originを削除しました");
+            AddTranslation("Log.VrRigRemoved", "已移除 VRRig", "VRRig removed", "VRRigを削除しました");
+            AddTranslation("Log.InteractionManagerRemoved", "已移除 XR Interaction Manager", "XR Interaction Manager removed", "XR Interaction Managerを削除しました");
+            AddTranslation("Log.InputActionManagerRemoved", "已移除 XR Input Action Manager", "XR Input Action Manager removed", "XR Input Action Managerを削除しました");
+            
+            // 项目类型
+            AddTranslation("ProjectType.VR", "当前项目类型：VR 项目", "Current Project Type: VR Project", "現在のプロジェクトタイプ：VRプロジェクト");
+            AddTranslation("ProjectType.Standard3D", "当前项目类型：3D 项目", "Current Project Type: 3D Project", "現在のプロジェクトタイプ：3Dプロジェクト");
+            AddTranslation("ProjectType.Unknown", "当前项目类型：未知", "Current Project Type: Unknown", "現在のプロジェクトタイプ：不明");
 
             // 步骤卡片
             AddTranslation("Step1.Title", "第 1 步：准备 XR 依赖包", "Step 1: Prepare XR Dependency Packages", "ステップ1：XR依存パッケージの準備");
