@@ -27,7 +27,12 @@ namespace PoseDrive.Editor
         private double _lastFpsSample;
         private float _fps;
         private double _nextAutoRefreshTime;
+        private double _nextDeviceListRefreshTime;
+        private int _selectedCameraIndex = -1;
+        private string[] _cameraDeviceNames = Array.Empty<string>();
         private const double AutoRefreshInterval = 1.0f;
+        private const double DeviceRefreshInterval = 2.0f;
+        private const string CameraDeviceUnavailableLabel = "<未检测到摄像头>";
 
         [MenuItem("Tools/PoseDrive/主面板", priority = 210)]
         public static void Open()
@@ -75,20 +80,20 @@ namespace PoseDrive.Editor
         private void FindDependencies()
         {
             if (_detector == null)
-            {
-                _detector = FindObjectOfType<PoseDetector>();
+        {
+            _detector = FindObjectOfType<PoseDetector>();
             }
             if (_manager == null)
             {
-                _manager = FindObjectOfType<PoseDriveManager>();
+            _manager = FindObjectOfType<PoseDriveManager>();
             }
             if (_classifier == null)
             {
-                _classifier = FindObjectOfType<ActionClassifier>();
+            _classifier = FindObjectOfType<ActionClassifier>();
             }
             if (_mapper == null)
             {
-                _mapper = FindObjectOfType<PoseInputMapper>();
+            _mapper = FindObjectOfType<PoseInputMapper>();
             }
 
             if (_webcam == null)
@@ -105,6 +110,7 @@ namespace PoseDrive.Editor
             }
 
             _enableCamera = _webcam == null || _webcam.enabled;
+            RefreshCameraDevices(forceRefresh: true);
         }
 
         private void OnGUI()
@@ -169,11 +175,45 @@ namespace PoseDrive.Editor
 
             _nextAutoRefreshTime = EditorApplication.timeSinceStartup + AutoRefreshInterval;
             FindDependencies();
+            RefreshCameraDevices();
 
             if (Application.isPlaying)
             {
                 Repaint();
             }
+        }
+
+        private void RefreshCameraDevices(bool forceRefresh = false)
+        {
+            if (_webcam == null)
+            {
+                _cameraDeviceNames = Array.Empty<string>();
+                _selectedCameraIndex = -1;
+                return;
+            }
+
+            if (!forceRefresh && EditorApplication.timeSinceStartup < _nextDeviceListRefreshTime)
+            {
+                return;
+            }
+
+            _nextDeviceListRefreshTime = EditorApplication.timeSinceStartup + DeviceRefreshInterval;
+
+            string[] devices = _webcam.GetAvailableDeviceNames(includeVirtual: true);
+            if (devices.Length == 0)
+            {
+                _cameraDeviceNames = new[] { CameraDeviceUnavailableLabel };
+                _selectedCameraIndex = 0;
+                return;
+            }
+
+            _cameraDeviceNames = devices;
+            string currentSelection = !string.IsNullOrEmpty(_webcam.PreferredDeviceName)
+                ? _webcam.PreferredDeviceName
+                : _webcam.CurrentDeviceName;
+
+            int index = Array.IndexOf(_cameraDeviceNames, currentSelection);
+            _selectedCameraIndex = index >= 0 ? index : 0;
         }
 
         private void DrawSystemStatusCard()
@@ -182,9 +222,9 @@ namespace PoseDrive.Editor
                        PoseDriveLocalization.Tr("module.status"),
                        PoseDriveLocalization.Tr("module.status.subtitle")))
             {
-                DrawStatusRow("PoseDetector", _detector != null);
+            DrawStatusRow("PoseDetector", _detector != null);
                 DrawStatusRow("ActionClassifier", _classifier != null);
-                DrawStatusRow("PoseInputMapper", _mapper != null);
+            DrawStatusRow("PoseInputMapper", _mapper != null);
                 DrawStatusRow("WebcamProvider", _webcam != null);
 
                 if (_webcam != null)
@@ -209,6 +249,27 @@ namespace PoseDrive.Editor
                        PoseDriveLocalization.Tr("module.camera.subtitle")))
             {
                 GUILayout.BeginHorizontal();
+                GUILayout.Label("摄像头设备", EditorStylesLibrary.Body, GUILayout.Width(100));
+                using (new EditorGUI.DisabledScope(_cameraDeviceNames.Length == 0 || _cameraDeviceNames[0] == CameraDeviceUnavailableLabel))
+                {
+                    int newIndex = EditorGUILayout.Popup(
+                        Mathf.Max(0, _selectedCameraIndex),
+                        _cameraDeviceNames.Length > 0 ? _cameraDeviceNames : new[] { CameraDeviceUnavailableLabel });
+                    if (_cameraDeviceNames.Length > 0 && newIndex != _selectedCameraIndex && _webcam != null)
+                    {
+                        SetCameraDeviceByIndex(newIndex);
+                    }
+                }
+                GUILayout.EndHorizontal();
+
+                if (_webcam != null && _webcam.IsUsingFallbackDevice)
+                {
+                    EditorGUILayout.HelpBox(
+                        $"设备 \"{_webcam.PreferredDeviceName}\" 不可用，已回退到 \"{_webcam.CurrentDeviceName}\"。",
+                        MessageType.Warning);
+                }
+
+                GUILayout.BeginHorizontal();
                 bool newCameraState = EditorGUILayout.ToggleLeft(
                     PoseDriveLocalization.Tr("camera.enable"), _enableCamera, EditorStylesLibrary.Body);
                 if (newCameraState != _enableCamera)
@@ -219,7 +280,7 @@ namespace PoseDrive.Editor
                         _webcam.enabled = _enableCamera;
                         if (_enableCamera)
                         {
-                            _webcam.Initialize();
+                            _webcam.Reinitialize();
                         }
                     }
                 }
@@ -228,24 +289,24 @@ namespace PoseDrive.Editor
                     PoseDriveLocalization.Tr("camera.skeleton"), _showSkeleton, EditorStylesLibrary.Body);
                 GUILayout.EndHorizontal();
 
-                Rect rect = GUILayoutUtility.GetAspectRect(16f / 9f, GUILayout.ExpandWidth(true));
+            Rect rect = GUILayoutUtility.GetAspectRect(16f / 9f, GUILayout.ExpandWidth(true));
 
-                if (!Application.isPlaying)
-                {
+            if (!Application.isPlaying)
+            {
                     EditorGUI.DrawRect(rect, new Color(0.07f, 0.07f, 0.07f));
                     EditorGUI.LabelField(rect, PoseDriveLocalization.Tr("camera.noFrame"),
                         EditorStyles.centeredGreyMiniLabel);
-                }
+            }
                 else if (_webcam != null && _enableCamera && _webcam.TryGetFrame(out _previewTexture) && _previewTexture != null)
-                {
-                    GUI.DrawTexture(rect, _previewTexture, ScaleMode.ScaleToFit);
+            {
+                GUI.DrawTexture(rect, _previewTexture, ScaleMode.ScaleToFit);
                     if (_showSkeleton && _detector != null && _detector.IsPoseValid)
-                    {
-                        DrawSkeletonOverlay(rect, _previewTexture);
-                    }
-                }
-                else
                 {
+                    DrawSkeletonOverlay(rect, _previewTexture);
+                }
+            }
+            else
+            {
                     EditorGUI.DrawRect(rect, new Color(0.2f, 0.2f, 0.22f));
                     EditorGUI.LabelField(rect, PoseDriveLocalization.Tr("camera.wait"),
                         EditorStyles.centeredGreyMiniLabel);
@@ -569,6 +630,25 @@ namespace PoseDrive.Editor
                 WebcamStatus.Error => "Camera error (see console)",
                 _ => PoseDriveLocalization.Tr("camera.wait")
             };
+        }
+
+        private void SetCameraDeviceByIndex(int index)
+        {
+            if (_webcam == null || _cameraDeviceNames.Length == 0)
+            {
+                return;
+            }
+
+            index = Mathf.Clamp(index, 0, _cameraDeviceNames.Length - 1);
+            string deviceName = _cameraDeviceNames[index];
+            if (deviceName == CameraDeviceUnavailableLabel)
+            {
+                return;
+            }
+
+            _webcam.PreferredDeviceName = deviceName;
+            _webcam.Reinitialize();
+            _selectedCameraIndex = index;
         }
 
         private static void OpenDocumentation()

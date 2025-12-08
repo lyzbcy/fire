@@ -647,7 +647,7 @@ PlayerSettings:
   webGLMemoryGeometricGrowthCap: 96
   webGLPowerPreference: 2
   scriptingDefineSymbols:
-    Standalone: UNITY_BARRACUDA
+    Standalone: UNITY_BARRACUDA;UNITY_SENTIS
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend: {}

@@ -101,57 +101,57 @@ namespace PoseDrive.Editor
         private void DrawDependencies()
         {
             // 检查编译时宏
-#if UNITY_BARRACUDA
+#if UNITY_SENTIS
             bool hasCompileTimeMacro = true;
 #else
             bool hasCompileTimeMacro = false;
 #endif
 
-            bool hasBarracuda = Type.GetType("Unity.Barracuda.Tensor, Unity.Barracuda") != null;
-            bool hasBarracudaInManifest = IsPackageInManifest("com.unity.barracuda");
+            bool hasSentisAssemblies = Type.GetType("Unity.Sentis.TensorFloat, Unity.Sentis") != null;
+            bool hasSentisInManifest = IsPackageInManifest("com.unity.sentis");
             
-            PoseDriveLogger.LogDebug($"步骤1 - 检查依赖: 编译时宏={hasCompileTimeMacro}, 运行时检测={hasBarracuda}, 在 manifest 中={hasBarracudaInManifest}");
+            PoseDriveLogger.LogDebug($"步骤1 - 检查依赖: 编译时宏={hasCompileTimeMacro}, 运行时检测={hasSentisAssemblies}, 在 manifest 中={hasSentisInManifest}");
 
             // 自动检查并更新宏（静默执行，不弹窗）
-            if (hasBarracudaInManifest && !hasCompileTimeMacro)
+            if (hasSentisInManifest && !hasCompileTimeMacro)
             {
                 PoseDriveMacroManager.CheckAndUpdateMacro();
             }
             
-            // 自定义 Barracuda 状态显示，支持两个按钮
+            // 自定义 Sentis 状态显示，支持两个按钮
             GUILayout.BeginHorizontal();
-            GUIContent barracudaContent = new GUIContent(
+            GUIContent sentisContent = new GUIContent(
                 PoseDriveLocalization.Tr("wizard.dependency.barracuda.name"),
                 PoseDriveLocalization.Tr("wizard.dependency.barracuda.tip"));
-            GUILayout.Label(barracudaContent, EditorStylesLibrary.Body, GUILayout.Width(120));
+            GUILayout.Label(sentisContent, EditorStylesLibrary.Body, GUILayout.Width(120));
             Color prev = GUI.color;
-            GUI.color = hasBarracuda ? Color.green : Color.red;
+            GUI.color = hasSentisAssemblies ? Color.green : Color.red;
             GUILayout.Label(
-                hasBarracuda ? PoseDriveLocalization.Tr("status.ready") : PoseDriveLocalization.Tr("status.missing"),
+                hasSentisAssemblies ? PoseDriveLocalization.Tr("status.ready") : PoseDriveLocalization.Tr("status.missing"),
                 EditorStylesLibrary.Body, GUILayout.Width(60));
             GUI.color = prev;
 
-            if (!hasBarracuda)
+            if (!hasSentisAssemblies)
             {
                 if (GUILayout.Button(PoseDriveLocalization.Tr("wizard.dependency.barracuda.action"), 
                     EditorStylesLibrary.ToolbarButton, GUILayout.Width(160)))
                 {
-                    OpenBarracudaPackagePage();
+                    OpenSentisPackagePage();
                 }
                 
                 // 如果不在 manifest 中，显示自动安装按钮
-                if (!hasBarracudaInManifest)
+                if (!hasSentisInManifest)
                 {
                     if (GUILayout.Button(PoseDriveLocalization.Tr("wizard.dependency.barracuda.install"), 
                         EditorStylesLibrary.ToolbarButton, GUILayout.Width(160)))
                     {
-                        InstallBarracuda();
+                        InstallSentis();
                     }
                 }
             }
             GUILayout.EndHorizontal();
 
-            if (!hasBarracuda)
+            if (!hasSentisAssemblies)
             {
                 GUILayout.Label(PoseDriveLocalization.Tr("wizard.dependency.barracuda.tip"), EditorStylesLibrary.Secondary);
             }
@@ -167,235 +167,82 @@ namespace PoseDrive.Editor
 
         private void DrawModelSelectors()
         {
-            // 检查编译时宏定义
-#if UNITY_BARRACUDA
-            bool hasCompileTimeMacro = true;
-#else
-            bool hasCompileTimeMacro = false;
-#endif
+            Type modelAssetType = Type.GetType("Unity.Sentis.ModelAsset, Unity.Sentis");
+            bool hasSentis = modelAssetType != null;
 
-            // 运行时检测 Barracuda 是否可用
-            bool hasBarracuda = Type.GetType("Unity.Barracuda.Tensor, Unity.Barracuda") != null;
-            bool hasBarracudaType = Type.GetType("Unity.Barracuda.NNModel, Unity.Barracuda") != null;
-            
-            PoseDriveLogger.LogDebug($"步骤2 - 选择模型: 编译时宏={hasCompileTimeMacro}, 运行时检测={hasBarracuda}, 类型={hasBarracudaType}");
+            PoseDriveLogger.LogDebug($"步骤2 - 选择模型: SentisModelAssetType={(hasSentis ? "可用" : "缺失")}");
 
-            // 如果编译时没有宏，但运行时检测到包，提示用户更新宏
-            if (!hasCompileTimeMacro && (hasBarracuda || hasBarracudaType))
+            if (!hasSentis)
             {
-                EditorGUILayout.HelpBox(
-                    "检测到 Barracuda 包已安装，但 UNITY_BARRACUDA 宏未定义。\n" +
-                    "请点击菜单：Tools/PoseDrive/检查并更新 Barracuda 宏\n" +
-                    "或手动在 Player Settings 中添加 UNITY_BARRACUDA 宏定义。",
-                    MessageType.Warning);
-                
-                if (GUILayout.Button("自动添加 UNITY_BARRACUDA 宏", GUILayout.Height(30)))
-                {
-                    PoseDriveMacroManager.CheckAndUpdateMacro();
-                }
+                EditorGUILayout.HelpBox(PoseDriveLocalization.Tr("wizard.model.noBarracuda"), MessageType.Warning);
+                PoseDriveLogger.LogWarning("步骤2 - Sentis 未安装或 ModelAsset 类型不可用，无法选择模型");
+                return;
             }
 
-            if (hasCompileTimeMacro && hasBarracuda && hasBarracudaType)
-            {
-                // 使用反射来访问 Barracuda 类型，避免编译时依赖
-                var nnModelType = Type.GetType("Unity.Barracuda.NNModel, Unity.Barracuda");
-                if (nnModelType != null)
-                {
-                    _moveNetModel = EditorGUILayout.ObjectField(
+            _moveNetModel = EditorGUILayout.ObjectField(
                 PoseDriveLocalization.Tr("wizard.model.movenet"),
                 _moveNetModel,
-                        nnModelType,
-                        false) as UnityEngine.Object;
-                    _actionModel = EditorGUILayout.ObjectField(
+                modelAssetType,
+                false);
+
+            _actionModel = EditorGUILayout.ObjectField(
                 PoseDriveLocalization.Tr("wizard.model.action"),
                 _actionModel,
-                        nnModelType,
-                        false) as UnityEngine.Object;
-                    
+                modelAssetType,
+                false);
+
             if (_detector != null && GUILayout.Button(PoseDriveLocalization.Tr("wizard.model.pullDetector")))
-                    {
-                        try
             {
-                            // 检查编译时宏定义
-#if UNITY_BARRACUDA
-                            PoseDriveLogger.LogDebug("编译时已定义 UNITY_BARRACUDA 宏");
-#else
-                            PoseDriveLogger.LogWarning("编译时未定义 UNITY_BARRACUDA 宏，_compiledModel 字段可能不存在");
-#endif
-                            
-                            // 先尝试使用 SerializedProperty
-                SerializedObject so = new SerializedObject(_detector);
-                            var prop = so.FindProperty("_compiledModel");
-                            
-                            PoseDriveLogger.LogDebug($"SerializedProperty 查找结果: prop={(prop != null ? "找到" : "未找到")}, value={(prop != null && prop.objectReferenceValue != null ? "有值" : "无值")}");
-                            
-                            if (prop != null && prop.objectReferenceValue != null)
-                            {
-                                _moveNetModel = prop.objectReferenceValue;
-                                PoseDriveLogger.LogInfo("从 PoseDetector 拉取了 MoveNet 模型");
-                                EditorUtility.DisplayDialog("成功", "已成功从 PoseDetector 拉取 MoveNet 模型！", "确定");
-                            }
-                            else if (prop != null && prop.objectReferenceValue == null)
-                            {
-                                EditorUtility.DisplayDialog("提示", "PoseDetector 中未找到已配置的模型。\n\n请先在 Inspector 中为 PoseDetector 组件配置 MoveNet 模型。", "确定");
-                                PoseDriveLogger.LogWarning("PoseDetector 中未找到已配置的模型");
-                            }
-                            else
-                            {
-                                // SerializedProperty 找不到，尝试使用反射
-                                var allFields = _detector.GetType().GetFields(
-                                    System.Reflection.BindingFlags.NonPublic | 
-                                    System.Reflection.BindingFlags.Instance | 
-                                    System.Reflection.BindingFlags.Public);
-                                
-                                PoseDriveLogger.LogDebug($"PoseDetector 类型的所有字段: {string.Join(", ", allFields.Select(f => f.Name))}");
-                                
-                                var field = _detector.GetType().GetField("_compiledModel", 
-                                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                                
-                                if (field != null)
-                                {
-                                    var modelValue = field.GetValue(_detector);
-                                    if (modelValue != null)
-                                    {
-                                        _moveNetModel = modelValue as UnityEngine.Object;
-                                        PoseDriveLogger.LogInfo("通过反射从 PoseDetector 拉取了 MoveNet 模型");
-                                        EditorUtility.DisplayDialog("成功", "已成功通过反射从 PoseDetector 拉取 MoveNet 模型！", "确定");
-                                    }
-                                    else
-                                    {
-                                        EditorUtility.DisplayDialog("提示", "PoseDetector 中未找到已配置的模型。\n\n请先在 Inspector 中为 PoseDetector 组件配置 MoveNet 模型。", "确定");
-                                        PoseDriveLogger.LogWarning("PoseDetector 中未找到已配置的模型");
-                                    }
-                                }
-                                else
-                                {
-#if UNITY_BARRACUDA
-                                    string message = "无法访问 PoseDetector 的 _compiledModel 字段。\n\n" +
-                                        "可能的原因：\n" +
-                                        "1. 脚本需要重新编译（请尝试：Assets > Reimport All）\n" +
-                                        "2. 字段名称可能已更改\n\n" +
-                                        $"可用字段: {string.Join(", ", allFields.Select(f => f.Name))}";
-#else
-                                    string message = "无法访问 PoseDetector 的 _compiledModel 字段。\n\n" +
-                                        "原因：UNITY_BARRACUDA 宏未定义，该字段在编译时被排除。\n\n" +
-                                        "解决方案：\n" +
-                                        "1. 点击菜单：Tools/PoseDrive/检查并更新 Barracuda 宏\n" +
-                                        "2. 或手动在 Player Settings 中添加 UNITY_BARRACUDA 宏定义\n" +
-                                        "3. 等待 Unity 重新编译脚本";
-#endif
-                                    
-                                    EditorUtility.DisplayDialog("提示", message, "确定");
-                                    PoseDriveLogger.LogWarning($"无法访问 PoseDetector 的 _compiledModel 字段。可用字段: {string.Join(", ", allFields.Select(f => f.Name))}");
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            PoseDriveLogger.LogException(ex, "从 PoseDetector 拉取模型时出错");
-                            EditorUtility.DisplayDialog("错误", $"拉取模型时出错：{ex.Message}\n\n详细信息请查看日志文件。", "确定");
-                        }
+                TryPullModelReference(_detector, "_modelAsset", ref _moveNetModel, "PoseDetector");
             }
+
             if (_classifier != null && GUILayout.Button(PoseDriveLocalization.Tr("wizard.model.pullClassifier")))
-                    {
-                        try
             {
-                            // 检查编译时宏定义
-#if UNITY_BARRACUDA
-                            PoseDriveLogger.LogDebug("编译时已定义 UNITY_BARRACUDA 宏");
-#else
-                            PoseDriveLogger.LogWarning("编译时未定义 UNITY_BARRACUDA 宏，_compiledModel 字段可能不存在");
-#endif
-                            
-                            // 先尝试使用 SerializedProperty
-                SerializedObject so = new SerializedObject(_classifier);
-                            var prop = so.FindProperty("_compiledModel");
-                            
-                            PoseDriveLogger.LogDebug($"SerializedProperty 查找结果: prop={(prop != null ? "找到" : "未找到")}, value={(prop != null && prop.objectReferenceValue != null ? "有值" : "无值")}");
-                            
-                            if (prop != null && prop.objectReferenceValue != null)
-                            {
-                                _actionModel = prop.objectReferenceValue;
-                                PoseDriveLogger.LogInfo("从 ActionClassifier 拉取了动作分类模型");
-                                EditorUtility.DisplayDialog("成功", "已成功从 ActionClassifier 拉取动作分类模型！", "确定");
-                            }
-                            else if (prop != null && prop.objectReferenceValue == null)
-                            {
-                                EditorUtility.DisplayDialog("提示", "ActionClassifier 中未找到已配置的模型。\n\n请先在 Inspector 中为 ActionClassifier 组件配置动作分类模型。", "确定");
-                                PoseDriveLogger.LogWarning("ActionClassifier 中未找到已配置的模型");
-                            }
-                            else
-                            {
-                                // SerializedProperty 找不到，尝试使用反射
-                                var allFields = _classifier.GetType().GetFields(
-                                    System.Reflection.BindingFlags.NonPublic | 
-                                    System.Reflection.BindingFlags.Instance | 
-                                    System.Reflection.BindingFlags.Public);
-                                
-                                PoseDriveLogger.LogDebug($"ActionClassifier 类型的所有字段: {string.Join(", ", allFields.Select(f => f.Name))}");
-                                
-                                var field = _classifier.GetType().GetField("_compiledModel", 
-                                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                                
-                                if (field != null)
-                                {
-                                    var modelValue = field.GetValue(_classifier);
-                                    if (modelValue != null)
-                                    {
-                                        _actionModel = modelValue as UnityEngine.Object;
-                                        PoseDriveLogger.LogInfo("通过反射从 ActionClassifier 拉取了动作分类模型");
-                                        EditorUtility.DisplayDialog("成功", "已成功通过反射从 ActionClassifier 拉取动作分类模型！", "确定");
-                                    }
-                                    else
-                                    {
-                                        EditorUtility.DisplayDialog("提示", "ActionClassifier 中未找到已配置的模型。\n\n请先在 Inspector 中为 ActionClassifier 组件配置动作分类模型。", "确定");
-                                        PoseDriveLogger.LogWarning("ActionClassifier 中未找到已配置的模型");
-                                    }
-                                }
-                                else
-                                {
-#if UNITY_BARRACUDA
-                                    string message = "无法访问 ActionClassifier 的 _compiledModel 字段。\n\n" +
-                                        "可能的原因：\n" +
-                                        "1. 脚本需要重新编译（请尝试：Assets > Reimport All）\n" +
-                                        "2. 字段名称可能已更改\n\n" +
-                                        $"可用字段: {string.Join(", ", allFields.Select(f => f.Name))}";
-#else
-                                    string message = "无法访问 ActionClassifier 的 _compiledModel 字段。\n\n" +
-                                        "原因：UNITY_BARRACUDA 宏未定义，该字段在编译时被排除。\n\n" +
-                                        "解决方案：\n" +
-                                        "1. 点击菜单：Tools/PoseDrive/检查并更新 Barracuda 宏\n" +
-                                        "2. 或手动在 Player Settings 中添加 UNITY_BARRACUDA 宏定义\n" +
-                                        "3. 等待 Unity 重新编译脚本";
-#endif
-                                    
-                                    EditorUtility.DisplayDialog("提示", message, "确定");
-                                    PoseDriveLogger.LogWarning($"无法访问 ActionClassifier 的 _compiledModel 字段。可用字段: {string.Join(", ", allFields.Select(f => f.Name))}");
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            PoseDriveLogger.LogException(ex, "从 ActionClassifier 拉取模型时出错");
-                            EditorUtility.DisplayDialog("错误", $"拉取模型时出错：{ex.Message}\n\n详细信息请查看日志文件。", "确定");
-                        }
+                TryPullModelReference(_classifier, "_modelAsset", ref _actionModel, "ActionClassifier");
             }
+        }
+
+        private void TryPullModelReference(Component component, string fieldName, ref UnityEngine.Object targetSlot, string sourceName)
+        {
+            if (component == null)
+            {
+                return;
+            }
+
+            try
+            {
+                SerializedObject so = new SerializedObject(component);
+                SerializedProperty prop = so.FindProperty(fieldName);
+                if (prop != null && prop.objectReferenceValue != null)
+                {
+                    targetSlot = prop.objectReferenceValue;
+                    PoseDriveLogger.LogInfo($"从 {sourceName} 拉取了模型引用");
+                    EditorUtility.DisplayDialog("成功", $"已成功从 {sourceName} 拉取模型！", "确定");
+                    return;
+                }
+
+                var field = component.GetType().GetField(
+                    fieldName,
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (field != null)
+                {
+                    var value = field.GetValue(component) as UnityEngine.Object;
+                    if (value != null)
+                    {
+                        targetSlot = value;
+                        PoseDriveLogger.LogInfo($"通过反射从 {sourceName} 拉取了模型引用");
+                        EditorUtility.DisplayDialog("成功", $"已成功通过反射从 {sourceName} 拉取模型！", "确定");
+                        return;
                     }
                 }
-            else
-            {
-                if (!hasCompileTimeMacro)
-                {
-                    EditorGUILayout.HelpBox(
-                        "UNITY_BARRACUDA 宏未定义，无法访问模型字段。\n" +
-                        "请先添加 UNITY_BARRACUDA 宏定义。",
-                        MessageType.Warning);
+
+                EditorUtility.DisplayDialog("提示", $"{sourceName} 中未找到已配置的模型。", "确定");
+                PoseDriveLogger.LogWarning($"{sourceName} 中未找到已配置的模型字段 {fieldName}");
             }
-            else
+            catch (Exception ex)
             {
-            EditorGUILayout.HelpBox(PoseDriveLocalization.Tr("wizard.model.noBarracuda"), MessageType.Warning);
-                }
-                PoseDriveLogger.LogWarning("步骤2 - Barracuda 未安装或宏未定义，无法选择模型");
+                PoseDriveLogger.LogException(ex, $"从 {sourceName} 拉取模型时出错");
+                EditorUtility.DisplayDialog("错误", $"拉取模型时出错：{ex.Message}", "确定");
             }
         }
 
@@ -531,51 +378,51 @@ namespace PoseDrive.Editor
                 _mapper = _manager.GetComponent<PoseInputMapper>() ?? _manager.gameObject.AddComponent<PoseInputMapper>();
             }
 
-            // 运行时检测 Barracuda 并配置模型
-            bool hasBarracuda = Type.GetType("Unity.Barracuda.NNModel, Unity.Barracuda") != null;
-            if (hasBarracuda)
+            // 配置 Sentis 模型
+            Type modelAssetType = Type.GetType("Unity.Sentis.ModelAsset, Unity.Sentis");
+            if (modelAssetType == null)
             {
-            if (_detector != null && _moveNetModel != null)
+                PoseDriveLogger.LogWarning("Sentis 未安装，跳过模型配置");
+            }
+            else
+            {
+                if (_detector != null && _moveNetModel != null)
                 {
                     try
-            {
-                SerializedObject so = new SerializedObject(_detector);
-                SerializedProperty prop = so.FindProperty("_compiledModel");
-                if (prop != null)
-                {
-                    prop.objectReferenceValue = _moveNetModel;
-                    so.ApplyModifiedProperties();
-                            PoseDriveLogger.LogInfo("已为 PoseDetector 配置 MoveNet 模型");
+                    {
+                        SerializedObject so = new SerializedObject(_detector);
+                        SerializedProperty prop = so.FindProperty("_modelAsset");
+                        if (prop != null)
+                        {
+                            prop.objectReferenceValue = _moveNetModel;
+                            so.ApplyModifiedProperties();
+                            PoseDriveLogger.LogInfo("已为 PoseDetector 配置 MoveNet 模型（Sentis ModelAsset）");
                         }
                     }
                     catch (Exception ex)
                     {
                         PoseDriveLogger.LogException(ex, "配置 PoseDetector 模型时出错");
+                    }
                 }
-            }
 
-            if (_classifier != null && _actionModel != null)
+                if (_classifier != null && _actionModel != null)
                 {
                     try
-            {
-                SerializedObject so = new SerializedObject(_classifier);
-                SerializedProperty prop = so.FindProperty("_compiledModel");
-                if (prop != null)
-                {
-                    prop.objectReferenceValue = _actionModel;
-                    so.ApplyModifiedProperties();
-                            PoseDriveLogger.LogInfo("已为 ActionClassifier 配置动作分类模型");
-                }
-            }
+                    {
+                        SerializedObject so = new SerializedObject(_classifier);
+                        SerializedProperty prop = so.FindProperty("_modelAsset");
+                        if (prop != null)
+                        {
+                            prop.objectReferenceValue = _actionModel;
+                            so.ApplyModifiedProperties();
+                            PoseDriveLogger.LogInfo("已为 ActionClassifier 配置动作分类模型（Sentis ModelAsset）");
+                        }
+                    }
                     catch (Exception ex)
                     {
                         PoseDriveLogger.LogException(ex, "配置 ActionClassifier 模型时出错");
                     }
                 }
-            }
-            else
-            {
-                PoseDriveLogger.LogWarning("Barracuda 未安装，跳过模型配置");
             }
 
             if (_mapper != null && _mappingAsset != null)
@@ -695,7 +542,7 @@ namespace PoseDrive.Editor
             }
         }
 
-        private static void OpenBarracudaPackagePage()
+        private static void OpenSentisPackagePage()
         {
             Type pmWindow =
                 Type.GetType("UnityEditor.PackageManager.UI.Window,UnityEditor.PackageManagerUINative") ??
@@ -712,12 +559,12 @@ namespace PoseDrive.Editor
 
                 if (openMethod != null)
                 {
-                    openMethod.Invoke(null, new object[] { "com.unity.barracuda" });
+                    openMethod.Invoke(null, new object[] { "com.unity.sentis" });
                     return;
                 }
             }
 
-            Application.OpenURL("https://docs.unity3d.com/Packages/com.unity.barracuda@latest");
+            Application.OpenURL("https://docs.unity3d.com/Packages/com.unity.sentis@latest");
         }
 
         /// <summary>
@@ -747,16 +594,16 @@ namespace PoseDrive.Editor
         }
 
         /// <summary>
-        /// 安装 Barracuda 包到 manifest.json
+        /// 安装 Sentis 包到 manifest.json
         /// </summary>
-        private static void InstallBarracuda()
+        private static void InstallSentis()
         {
-            PoseDriveLogger.LogInfo("开始安装 Barracuda 包");
+            PoseDriveLogger.LogInfo("开始安装 Sentis 包");
             
             // 先检查是否已经在 manifest 中
-            if (IsPackageInManifest("com.unity.barracuda"))
+            if (IsPackageInManifest("com.unity.sentis"))
             {
-                PoseDriveLogger.LogWarning("Barracuda 已在 manifest 中，无需重复安装");
+                PoseDriveLogger.LogWarning("Sentis 已在 manifest 中，无需重复安装");
                 EditorUtility.DisplayDialog(
                     PoseDriveLocalization.Tr("wizard.dependency.barracuda.name"),
                     PoseDriveLocalization.Tr("wizard.dependency.barracuda.install.already"),
@@ -773,11 +620,11 @@ namespace PoseDrive.Editor
 
             if (!confirmed)
             {
-                PoseDriveLogger.LogInfo("用户取消了 Barracuda 安装");
+                PoseDriveLogger.LogInfo("用户取消了 Sentis 安装");
                 return;
             }
             
-            PoseDriveLogger.LogInfo("用户确认安装 Barracuda");
+            PoseDriveLogger.LogInfo("用户确认安装 Sentis");
 
             try
             {
@@ -795,7 +642,7 @@ namespace PoseDrive.Editor
                 string content = File.ReadAllText(manifestPath, Encoding.UTF8);
                 
                 // 检查是否已存在
-                if (content.Contains("com.unity.barracuda"))
+                if (content.Contains("com.unity.sentis"))
                 {
                     EditorUtility.DisplayDialog(
                         PoseDriveLocalization.Tr("wizard.dependency.barracuda.name"),
@@ -837,26 +684,26 @@ namespace PoseDrive.Editor
                 }
 
                 // 构建要插入的内容
-                string barracudaEntry = "    \"com.unity.barracuda\": \"https://github.com/Unity-Technologies/barracuda-release.git\",";
+                string sentisEntry = "    \"com.unity.sentis\": \"1.3.0\",";
                 
                 // 如果 dependencies 不为空，需要添加换行和缩进
                 if (insertIndex < content.Length && content[insertIndex] != '}')
                 {
                     // 有现有依赖项，在开头插入并添加换行
-                    barracudaEntry = "\n    " + barracudaEntry;
+                    sentisEntry = "\n    " + sentisEntry;
                 }
                 else
                 {
                     // 没有依赖项，直接添加
-                    barracudaEntry = "\n    " + barracudaEntry + "\n";
+                    sentisEntry = "\n    " + sentisEntry + "\n";
                 }
 
                 // 插入内容
-                content = content.Insert(insertIndex, barracudaEntry);
+                content = content.Insert(insertIndex, sentisEntry);
 
                 // 写回文件
                 File.WriteAllText(manifestPath, content, Encoding.UTF8);
-                PoseDriveLogger.LogInfo($"成功将 Barracuda 添加到 manifest.json: {manifestPath}");
+                PoseDriveLogger.LogInfo($"成功将 Sentis 添加到 manifest.json: {manifestPath}");
                 
                 // 刷新 AssetDatabase
                 AssetDatabase.Refresh();
@@ -867,11 +714,11 @@ namespace PoseDrive.Editor
                     PoseDriveLocalization.Tr("wizard.dependency.barracuda.install.success"),
                     "确定");
                 
-                PoseDriveLogger.LogInfo("Barracuda 安装流程完成");
+                PoseDriveLogger.LogInfo("Sentis 安装流程完成");
             }
             catch (Exception ex)
             {
-                PoseDriveLogger.LogException(ex, "安装 Barracuda 时发生异常");
+                PoseDriveLogger.LogException(ex, "安装 Sentis 时发生异常");
                 EditorUtility.DisplayDialog(
                     "错误",
                     string.Format(PoseDriveLocalization.Tr("wizard.dependency.barracuda.install.error"), ex.Message),

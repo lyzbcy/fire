@@ -4,28 +4,56 @@ using UnityEngine;
 
 #if UNITY_BARRACUDA
 using Unity.Barracuda;
+using TensorFloat = Unity.Barracuda.Tensor;
+using Model = Unity.Barracuda.Model;
+using IWorker = Unity.Barracuda.IWorker;
+#elif UNITY_SENTIS
+using Unity.Sentis;
+using TensorFloat = Unity.Sentis.TensorFloat;
+using Model = Unity.Sentis.Model;
+using IWorker = Unity.Sentis.IWorker;
+#else
+// 占位类型（未安装任何推理引擎时）
+using TensorFloat = System.Object;
+using Model = System.Object;
+using IWorker = System.IDisposable;
 #endif
 
 namespace PoseDrive.Runtime.Core
 {
     /// <summary>
-    /// 使用 Barracuda MoveNet 模型检测人体关键点。
+    /// 使用 Unity Sentis 或 Barracuda 运行 MoveNet 模型，检测人体关键点。
+    /// 通过 ModelCompat 兼容层自动适配不同的推理引擎。
     /// </summary>
     [RequireComponent(typeof(WebcamProvider))]
     public class PoseDetector : MonoBehaviour
     {
 #if UNITY_BARRACUDA
         [Header("模型配置")]
+        [Tooltip("Barracuda 的 NNModel。优先使用它。")]
         [SerializeField]
-        private NNModel _compiledModel;
+        private UnityEngine.Object _modelAsset;
 
+        [Tooltip("备用的 MoveNet ONNX 模型文件（TextAsset）。当未设置 ModelAsset 时使用。")]
         [SerializeField]
-      	private TextAsset _onnxModel;
+        private TextAsset _onnxModelFallback;
+#elif UNITY_SENTIS
+        [Header("模型配置")]
+        [Tooltip("Sentis 的 ModelAsset。优先使用它。")]
+        [SerializeField]
+        private UnityEngine.Object _modelAsset;
+
+        [Tooltip("备用的 MoveNet ONNX 模型文件（TextAsset）。当未设置 ModelAsset 时使用。")]
+        [SerializeField]
+        private TextAsset _onnxModelFallback;
 #else
         [Header("模型配置")]
+        [Tooltip("需要安装 Unity.Barracuda 或 Unity.Sentis 包")]
         [SerializeField]
-        [Tooltip("缺少 Barracuda 包时此字段仅用于提示")]
-        private TextAsset _placeholder;
+        private UnityEngine.Object _modelAsset;
+
+        [SerializeField]
+        private TextAsset _onnxModelFallback;
 #endif
 
         [SerializeField]
@@ -47,10 +75,9 @@ namespace PoseDrive.Runtime.Core
         private bool _debugMode;
 
         private IWebcamProviderFacade _provider;
-#if UNITY_BARRACUDA
         private Model _model;
         private IWorker _worker;
-#endif
+
         private readonly PoseData _currentPose = new PoseData();
         private readonly PoseData _smoothedPose = new PoseData();
         private float _lastConfidence;
@@ -70,28 +97,26 @@ namespace PoseDrive.Runtime.Core
                 _provider = gameObject.AddComponent<WebcamProvider>();
             }
 
-#if UNITY_BARRACUDA
+#if UNITY_BARRACUDA || UNITY_SENTIS
             InitializeModel();
 #else
-            Debug.LogWarning("PoseController: 当前项目尚未安装 Barracuda，姿态检测将不会运行。");
-            _ = _inputWidth;
-            _ = _inputHeight;
-            _ = _smoothing;
+            Debug.LogWarning("PoseDrive: 未安装 Unity.Barracuda 或 Unity.Sentis，姿态检测将不会运行。");
 #endif
         }
 
         private void OnDestroy()
         {
-#if UNITY_BARRACUDA
+#if UNITY_BARRACUDA || UNITY_SENTIS
             _worker?.Dispose();
 #endif
         }
 
         private void Update()
         {
-#if UNITY_BARRACUDA
+#if UNITY_BARRACUDA || UNITY_SENTIS
             if (_worker == null)
             {
+                _lastConfidence = 0f;
                 return;
             }
 
@@ -101,9 +126,16 @@ namespace PoseDrive.Runtime.Core
                 return;
             }
 
-            using Tensor input = BuildInputTensor(_cachedFrame);
+            using TensorFloat input = BuildInputTensor(_cachedFrame);
             _worker.Execute(input);
-            using Tensor output = _worker.PeekOutput();
+
+            TensorFloat output = _worker.PeekOutput() as TensorFloat;
+            if (output == null)
+            {
+                _lastConfidence = 0f;
+                return;
+            }
+
             ParsePose(output, _currentPose);
             SmoothPose(_currentPose, _smoothedPose);
             _smoothedPose.Timestamp = Time.time;
@@ -112,65 +144,58 @@ namespace PoseDrive.Runtime.Core
 #endif
         }
 
-#if UNITY_BARRACUDA
         private void InitializeModel()
         {
+            Model rawModel = null;
+
             try
             {
-                if (_compiledModel != null)
+                if (_modelAsset != null)
                 {
-                    _model = ModelLoader.Load(_compiledModel);
+                    rawModel = ModelCompat.LoadModel(_modelAsset);
                 }
-                else if (_onnxModel != null)
+                else if (_onnxModelFallback != null && _onnxModelFallback.bytes != null && _onnxModelFallback.bytes.Length > 0)
                 {
-                    _model = ModelLoader.Load(_onnxModel.bytes);
+                    rawModel = ModelCompat.LoadModel(_onnxModelFallback.bytes);
                 }
 
-                if (_model == null)
+                if (rawModel == null)
                 {
-                    Debug.LogWarning("PoseController: 未配置 MoveNet 模型。");
+                    Debug.LogWarning("PoseDrive: 未配置 MoveNet 模型（ModelAsset 或 ONNX）。");
                     return;
                 }
 
-                _worker = WorkerFactory.CreateWorker(WorkerFactory.Type.Auto, _model);
+#if UNITY_SENTIS
+                _model = rawModel; // Sentis 的 ModelOptimizer 在 CreateWorker 中处理
+                _worker = ModelCompat.CreateWorker(rawModel);
+#elif UNITY_BARRACUDA
+                _model = rawModel;
+                _worker = ModelCompat.CreateWorker(rawModel);
+#else
+                _worker = null;
+#endif
             }
             catch (Exception ex)
             {
-                Debug.LogError($"PoseController: 加载 MoveNet 失败 - {ex.Message}");
+                Debug.LogError($"PoseDrive: 加载 MoveNet 模型失败 - {ex.Message}");
+                _worker = null;
             }
         }
 
-        private Tensor BuildInputTensor(Texture2D texture)
+        private TensorFloat BuildInputTensor(Texture2D texture)
         {
-            Color[] pixels = texture.GetPixels(0, 0, texture.width, texture.height);
-            Tensor tensor = new Tensor(1, _inputHeight, _inputWidth, 3);
-            float scaleX = texture.width / (float)_inputWidth;
-            float scaleY = texture.height / (float)_inputHeight;
-
-            for (int y = 0; y < _inputHeight; y++)
-            {
-                for (int x = 0; x < _inputWidth; x++)
-                {
-                    int srcX = Mathf.Clamp(Mathf.RoundToInt(x * scaleX), 0, texture.width - 1);
-                    int srcY = Mathf.Clamp(Mathf.RoundToInt(y * scaleY), 0, texture.height - 1);
-                    Color color = pixels[srcY * texture.width + srcX];
-                    tensor[0, y, x, 0] = color.r;
-                    tensor[0, y, x, 1] = color.g;
-                    tensor[0, y, x, 2] = color.b;
-                }
-            }
-
-            return tensor;
+            return ModelCompat.CreateTensorFromTexture(texture, _inputWidth, _inputHeight);
         }
 
-        private void ParsePose(Tensor output, PoseData target)
+        private void ParsePose(TensorFloat output, PoseData target)
         {
             if (output == null)
             {
                 return;
             }
 
-            // MoveNet 结果形状：1 x keypoints x 3
+#if UNITY_BARRACUDA
+            // Barracuda Tensor: shape 是 int[]，访问方式相同
             int keypoints = Math.Min(output.channels, PoseData.KeypointCount);
             float confidenceAccumulator = 0f;
 
@@ -192,10 +217,36 @@ namespace PoseDrive.Runtime.Core
             }
 
             _lastConfidence = confidenceAccumulator / Mathf.Max(1, keypoints);
+#elif UNITY_SENTIS
+            // Sentis TensorFloat: shape 是 TensorShape，访问方式相同
+            int keypoints = Math.Min(output.shape[2], PoseData.KeypointCount);
+            float confidenceAccumulator = 0f;
+
+            for (int i = 0; i < keypoints; i++)
+            {
+                float y = output[0, 0, i, 0];
+                float x = output[0, 0, i, 1];
+                float confidence = output[0, 0, i, 2];
+
+                PoseKeypoint kp = new PoseKeypoint
+                {
+                    X = Mathf.Clamp01(x),
+                    Y = Mathf.Clamp01(1f - y),
+                    Confidence = Mathf.Clamp01(confidence)
+                };
+
+                target.SetKeypoint(i, kp);
+                confidenceAccumulator += kp.Confidence;
+            }
+
+            _lastConfidence = confidenceAccumulator / Mathf.Max(1, keypoints);
+#else
+            _lastConfidence = 0f;
+#endif
 
             if (_debugMode)
             {
-                Debug.Log($"PoseController: 置信度 {_lastConfidence:F2}");
+                Debug.Log($"PoseDrive: 置信度 {_lastConfidence:F2}");
             }
         }
 
@@ -217,7 +268,6 @@ namespace PoseDrive.Runtime.Core
                 destination.SetKeypoint(i, dst);
             }
         }
-#endif
     }
 
     /// <summary>
@@ -228,4 +278,3 @@ namespace PoseDrive.Runtime.Core
         bool TryGetFrame(out Texture2D texture);
     }
 }
-
