@@ -663,6 +663,19 @@ namespace Fire.VersionControlAssistant
             }
         }
 
+        public void CreateBranchCallback(string branchName)
+        {
+            if (string.IsNullOrWhiteSpace(branchName))
+            {
+                return;
+            }
+
+            if (ExecuteGitCommand($"checkout -b \"{branchName}\"", GitLocalization.Tr("notify.branchCreated", branchName)))
+            {
+                RefreshData();
+            }
+        }
+
         private void RefreshData()
         {
             try

@@ -1,0 +1,22 @@
+{
+    "name": "PoseDrive.Runtime",
+    "rootNamespace": "PoseDrive.Runtime",
+    "references": [
+        "Unity.Barracuda"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.barracuda",
+            "expression": "",
+            "define": "UNITY_BARRACUDA"
+        }
+    ],
+    "noEngineReferences": false
+}

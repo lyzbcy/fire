@@ -13,8 +13,9 @@ This document provides detailed usage instructions for the **Version Control Ass
 
 ### Interface at a Glance
 - **Hero Info Card**: Top gradient card displaying current branch, remote, unpushed count, and last pull time, with help links for team context.
-- **Action Toolbar**: Refresh/Stage All/Commit/Push/Pull use unified icon+text card buttons, automatically enabled/disabled based on remote/branch availability.
+- **Action Toolbar**: Refresh/Stage All/Commit/Push/Pull use unified icon+text card buttons. The **Branch** field is now a dropdown menu supporting quick switching.
 - **Three-Column Layout**: Left change tree (grouped by folder), middle/right commit form and recent commits, bottom `git log` area—all using a consistent card visual style.
+- **Context Menus**: Right-click on any file in the customized tree view to Stage, Unstage, Discard changes, or Open in Explorer.
 - **Preferences & Notifications**: Top-right gear icon for settings and language switching; notification icon for Git status messages.
 
 ### Initial Setup
@@ -26,11 +27,22 @@ This document provides detailed usage instructions for the **Version Control Ass
 
 #### Inspect Changes
 - The left tree view lists modified files grouped by folder.
+- **Right-click** any file to access the Context Menu:
+  - **Stage**: Add single file to index.
+  - **Unstage**: Remove single file from index.
+  - **Discard**: Revert file changes (Danger!).
+  - **Show in Explorer**: Reveal file in system file manager.
 - Use the search box to filter entries by file name.
 - The “Changes” card displays counts for each change type (Added, Modified, Deleted, etc.).
 
+#### Branch Management
+- Click the **Branch Name** in the toolbar to open the Branch Menu.
+- **Switch Branch**: Select a local branch to checkout immediately.
+- **New Branch**: Create a new branch from the current HEAD.
+- **Delete Branch**: Delete a local branch (cannot delete current branch).
+
 #### Stage and Commit
-1. Click **Stage All** if you want to stage everything (`git add -A`).
+1. Click **Stage All** or use the right-click menu to stage specific files.
 2. Enter a commit message in the “Commit” card; the commit button enables once there is staged content.
 3. Press **Commit** to run `git commit -m "<message>"`. Notifications appear in the status card if Git reports errors.
 
@@ -63,7 +75,8 @@ Please send bug reports or feature requests to `support@fire-tools.example`.
 ### 界面速览
 
 - **英雄信息卡**：分支、远端、未推送数量以及帮助链接集中在顶部卡片中，方便团队上下同步文。
-- **工具条按钮**：Refresh/Stage/Commit/Push/Pull 采用图标+文字的卡片式设计，禁用态与提示语一致。
+- **工具条按钮**：Refresh/Stage/Commit/Push/Pull 采用图标+文字的卡片式设计；**分支**显示为下拉菜单，支持快速切换。
+- **右键菜单**：在左侧文件树中右键点击，可对单文件进行 Stage (暂存)、Discard (丢弃)、打开文件等操作。
 - **三栏布局**：左侧改动树、右侧最近提交和底部日志区域统一配色，保证大仓库下仍然整洁。
 - **设置入口**：右上角的齿轮按钮可切换语言、打开项目设置，通知提示也集中在同一区域。
 
@@ -136,6 +149,11 @@ Please send bug reports or feature requests to `support@fire-tools.example`.
 
 **变更列表卡片**
 - **搜索框**：快速查找特定文件
+- **右键菜单**：
+  - **Stage (暂存)**：暂存选中的文件
+  - **Unstage (取消暂存)**：取消暂存选中的文件
+  - **Discard (丢弃改动)**：还原文件到未修改状态（不可撤销！）
+  - **Show in Explorer**：在资源管理器中显示文件
 - **变更统计**：顶部显示各类变更的数量和分布
 - **文件树**：按目录分组显示所有改动的文件
 - **颜色编码**：
