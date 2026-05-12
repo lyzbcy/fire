@@ -6,6 +6,32 @@ This repository is a sample project based on **Unity 2021.3 LTS**. It contains m
 
 ---
 
+## Project Introduction / 项目简介
+
+**Fire** 是一个结合 **VR 技术与音乐治疗** 的创新项目，旨在为不同群体提供独特的虚拟体验。
+
+### 🎯 核心目标
+- **辅助游疗**：针对失语症人群，设计了专业的辅助治疗游戏。这些游戏内容由团队中两名音乐师范专业的同学精心编写，旨在通过音乐与互动的结合，辅助患者进行康复训练（项目目前仍处于积极开发中）。
+- **治愈休闲**：面向大众群体，提供一个治愈、休闲且具备社交功能的虚拟空间。
+
+### 🌟 主要玩法
+项目构建了多个风格各异的**小场景**，用户通过“门框”来解锁并穿梭于这些场景之间：
+- **沉浸观景**：在每个小场景中，用户可以通过 VR 设备身临其境地欣赏精美景色，放松身心。
+- **趣味互动**：游玩场景内的小游戏，赢取**游戏代币**。
+- **个性化收集**：使用代币兑换更多游戏道具，丰富互动体验。
+
+### 🛠️ 技术架构 / Technology Stack
+本项目基于 **Unity 2021.3 LTS** 开发，采用现代化的技术栈以确保性能与扩展性：
+- **渲染管线**：采用 **Universal Render Pipeline (URP)**，在保证 VR 高帧率要求的同时提供优质的画面表现。
+- **VR 框架**：基于 **XR Interaction Toolkit (XRI)** 和 **OpenXR** 标准，支持主流 VR 设备（Oculus/Meta Quest, HTC Vive 等）。
+- **自研核心工具**：
+  - **Fire VR Converter**：一键将普通 3D 项目转换为 VR 项目，自动配置 XR 环境。
+  - **Focus Optimizer**：针对 VR 场景的性能优化工具。
+  - **Pose Drive**：处理 VR 下的手部姿态与交互动画。
+  - **Version Management Assistant**：辅助项目版本管理与迭代。
+
+---
+
 ## Environment Requirements / 环境要求
 
 - **OS**: Windows 10 or later.
